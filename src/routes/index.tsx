@@ -23,7 +23,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const MAX_INVOICES = 1000;
+const BATCH_CONCURRENCY = 4;
 const CONCURRENCY = 4;
 const PAGE_SIZE = 8;
 
