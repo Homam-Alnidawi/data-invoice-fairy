@@ -515,13 +515,30 @@ function Index() {
               <span className="text-[11px] font-bold text-brand"> · ض {nf.format(totals.tax)}</span>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-[13px] font-bold text-primary-foreground transition-colors active:bg-brand/90"
-          >
-            تصدير التقرير
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="rounded-xl bg-brand px-3 py-2.5 text-[12px] font-bold text-primary-foreground transition-colors active:bg-brand/90"
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={exportExcel}
+              className="rounded-xl bg-ink px-3 py-2.5 text-[12px] font-bold text-ink-foreground transition-opacity active:opacity-80"
+            >
+              Excel
+            </button>
+            <button
+              type="button"
+              onClick={exportPdf}
+              className="rounded-xl bg-brand-soft px-3 py-2.5 text-[12px] font-bold text-foreground transition-opacity active:opacity-80"
+            >
+              PDF
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
