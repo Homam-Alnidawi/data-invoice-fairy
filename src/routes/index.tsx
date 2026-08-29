@@ -142,70 +142,120 @@ function Index() {
   const rows = parsed.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const maxSupplier = totals.suppliers[0]?.[1] ?? 1;
 
-  const exportCsv = () => {
-    if (parsed.length === 0) {
-      toast.error("لا توجد بيانات للتصدير");
-      return;
-    }
-    const head = [
-      "المورد",
-      "رقم الفاتورة",
-      "التاريخ",
-      "المنتج",
-      "الكمية",
-      "سعر الوحدة",
-      "إجمالي البند",
-      "الصافي",
-      "الضريبة",
-      "الإجمالي",
-    ];
-    const lines = [head.join(",")];
+  const HEAD = [
+    "المورد",
+    "رقم الفاتورة",
+    "التاريخ",
+    "المنتج",
+    "الكمية",
+    "سعر الوحدة",
+    "إجمالي البند",
+    "الصافي",
+    "الخصم",
+    "الضريبة KDV",
+    "الإجمالي",
+  ];
+
+  const buildRows = (): string[][] => {
+    const out: string[][] = [];
     for (const inv of parsed) {
+      const tail = [
+        String(inv.subtotal),
+        String(inv.discount ?? 0),
+        String(inv.tax),
+        String(inv.total),
+      ];
       if (inv.items.length === 0) {
-        lines.push(
-          [
-            inv.supplier,
-            inv.invoiceNumber,
-            inv.date,
-            "",
-            "",
-            "",
-            "",
-            inv.subtotal,
-            inv.tax,
-            inv.total,
-          ]
-            .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-            .join(","),
-        );
+        out.push([inv.supplier, inv.invoiceNumber, inv.date, "", "", "", "", ...tail]);
       }
       for (const it of inv.items) {
-        lines.push(
-          [
-            inv.supplier,
-            inv.invoiceNumber,
-            inv.date,
-            it.name,
-            it.qty,
-            it.unitPrice,
-            it.total,
-            inv.subtotal,
-            inv.tax,
-            inv.total,
-          ]
-            .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-            .join(","),
-        );
+        out.push([
+          inv.supplier,
+          inv.invoiceNumber,
+          inv.date,
+          it.name,
+          String(it.qty),
+          String(it.unitPrice),
+          String(it.total),
+          ...tail,
+        ]);
       }
     }
-    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    return out;
+  };
+
+  const download = (blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "تقرير_المشتريات.csv";
+    a.download = name;
+    a.rel = "noopener";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
+
+  const hasData = () => {
+    if (parsed.length === 0) {
+      toast.error("لا توجد بيانات للتصدير — ارفع فواتير أولًا");
+      return false;
+    }
+    return true;
+  };
+
+  const exportCsv = () => {
+    if (!hasData()) return;
+    const esc = (c: string) => `"${c.replace(/"/g, '""')}"`;
+    const lines = [HEAD.map(esc).join(","), ...buildRows().map((r) => r.map(esc).join(","))];
+    download(
+      new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }),
+      "تقرير_المشتريات.csv",
+    );
+    toast.success("تم تصدير CSV");
+  };
+
+  const tableHtml = () => {
+    const esc = (c: string) =>
+      c.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const body = buildRows()
+      .map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`)
+      .join("");
+    return `<table border="1" cellspacing="0" cellpadding="4" dir="rtl">
+      <thead><tr>${HEAD.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><th colspan="7">الإجمالي</th><th>${nf.format(totals.subtotal)}</th><th></th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th></tr></tfoot>
+    </table>`;
+  };
+
+  const exportExcel = () => {
+    if (!hasData()) return;
+    const html = `<html dir="rtl"><head><meta charset="utf-8"/></head><body>${tableHtml()}</body></html>`;
+    download(
+      new Blob(["\uFEFF" + html], { type: "application/vnd.ms-excel;charset=utf-8;" }),
+      "تقرير_المشتريات.xls",
+    );
+    toast.success("تم تصدير Excel");
+  };
+
+  const exportPdf = () => {
+    if (!hasData()) return;
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast.error("امنع حظر النوافذ المنبثقة لتصدير PDF");
+      return;
+    }
+    win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
+      <title>تقرير المشتريات</title>
+      <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ccc;padding:4px;text-align:right}h1{font-size:18px}</style>
+      </head><body><h1>تقرير المشتريات</h1>
+      <p>${parsed.length} فاتورة · الإجمالي ${nf.format(totals.total)} · الضريبة ${nf.format(totals.tax)}</p>
+      ${tableHtml()}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  };
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -465,13 +515,30 @@ function Index() {
               <span className="text-[11px] font-bold text-brand"> · ض {nf.format(totals.tax)}</span>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-[13px] font-bold text-primary-foreground transition-colors active:bg-brand/90"
-          >
-            تصدير التقرير
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="rounded-xl bg-brand px-3 py-2.5 text-[12px] font-bold text-primary-foreground transition-colors active:bg-brand/90"
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={exportExcel}
+              className="rounded-xl bg-ink px-3 py-2.5 text-[12px] font-bold text-ink-foreground transition-opacity active:opacity-80"
+            >
+              Excel
+            </button>
+            <button
+              type="button"
+              onClick={exportPdf}
+              className="rounded-xl bg-brand-soft px-3 py-2.5 text-[12px] font-bold text-foreground transition-opacity active:opacity-80"
+            >
+              PDF
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
