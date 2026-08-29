@@ -66,16 +66,7 @@ function Index() {
   const handleFiles = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
-      const incoming = Array.from(fileList);
-      const room = MAX_INVOICES - jobs.length;
-      if (room <= 0) {
-        toast.error(`الحد الأقصى ${MAX_INVOICES} فاتورة`);
-        return;
-      }
-      const files = incoming.slice(0, room);
-      if (incoming.length > room) {
-        toast.warning(`تم قبول ${room} فقط — الحد الأقصى ${MAX_INVOICES} فاتورة`);
-      }
+      const files = Array.from(fileList);
 
       const newJobs: Job[] = files.map((f, i) => ({
         id: `${Date.now()}-${i}-${f.name}`,
@@ -290,7 +281,7 @@ function Index() {
             </div>
           </div>
           <span className="rounded-full bg-brand-soft/60 px-3 py-1 text-[11px] font-semibold">
-            حتى {MAX_INVOICES} فاتورة
+            عدد غير محدود من الفواتير
           </span>
         </div>
       </header>
@@ -329,7 +320,7 @@ function Index() {
                 <div className="min-w-0">
                   <div className="text-[14px] font-bold">اسحب الفواتير هنا أو اخترها</div>
                   <div className="mt-0.5 text-[11px] text-muted-foreground">
-                    صور أو PDF — حتى {MAX_INVOICES} فاتورة في الدفعة
+                    صور أو PDF — دفعة بعد دفعة، بلا حدّ أقصى
                   </div>
                 </div>
               </div>
