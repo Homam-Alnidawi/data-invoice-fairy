@@ -142,42 +142,45 @@ function Index() {
   const rows = parsed.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const maxSupplier = totals.suppliers[0]?.[1] ?? 1;
 
-  const HEAD = [
-    "المورد",
+  const INVOICES_HEAD = [
     "رقم الفاتورة",
+    "المورد",
     "التاريخ",
-    "المنتج",
-    "الكمية",
-    "سعر الوحدة",
-    "إجمالي البند",
     "الصافي",
     "الخصم",
     "الضريبة KDV",
     "الإجمالي",
   ];
 
-  const buildRows = (): string[][] => {
+  const ITEMS_HEAD = [
+    "رقم الفاتورة",
+    "المنتج",
+    "الكمية",
+    "سعر الوحدة",
+    "إجمالي البند",
+  ];
+
+  const buildInvoiceRows = (): string[][] =>
+    parsed.map((inv) => [
+      inv.invoiceNumber || "—",
+      inv.supplier,
+      inv.date,
+      String(inv.subtotal),
+      String(inv.discount ?? 0),
+      String(inv.tax),
+      String(inv.total),
+    ]);
+
+  const buildItemRows = (): string[][] => {
     const out: string[][] = [];
     for (const inv of parsed) {
-      const tail = [
-        String(inv.subtotal),
-        String(inv.discount ?? 0),
-        String(inv.tax),
-        String(inv.total),
-      ];
-      if (inv.items.length === 0) {
-        out.push([inv.supplier, inv.invoiceNumber, inv.date, "", "", "", "", ...tail]);
-      }
       for (const it of inv.items) {
         out.push([
-          inv.supplier,
-          inv.invoiceNumber,
-          inv.date,
+          inv.invoiceNumber || "—",
           it.name,
           String(it.qty),
           String(it.unitPrice),
           String(it.total),
-          ...tail,
         ]);
       }
     }
@@ -204,38 +207,47 @@ function Index() {
     return true;
   };
 
-  const exportCsv = () => {
-    if (!hasData()) return;
+  const csvBlob = (head: string[], rows: string[][]) => {
     const esc = (c: string) => `"${c.replace(/"/g, '""')}"`;
-    const lines = [HEAD.map(esc).join(","), ...buildRows().map((r) => r.map(esc).join(","))];
-    download(
-      new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }),
-      "تقرير_المشتريات.csv",
-    );
-    toast.success("تم تصدير CSV");
+    const lines = [head.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))];
+    return new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
   };
 
-  const tableHtml = () => {
+  const exportCsv = () => {
+    if (!hasData()) return;
+    download(csvBlob(INVOICES_HEAD, buildInvoiceRows()), "الفواتير.csv");
+    setTimeout(() => download(csvBlob(ITEMS_HEAD, buildItemRows()), "البنود.csv"), 600);
+    toast.success("تم تصدير ملفين: الفواتير + البنود");
+  };
+
+  const tableHtml = (head: string[], rows: string[][], footer?: string) => {
     const esc = (c: string) =>
       c.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const body = buildRows()
+    const body = rows
       .map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`)
       .join("");
     return `<table border="1" cellspacing="0" cellpadding="4" dir="rtl">
-      <thead><tr>${HEAD.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+      <thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr><th colspan="7">الإجمالي</th><th>${nf.format(totals.subtotal)}</th><th></th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th></tr></tfoot>
+      ${footer ? `<tfoot>${footer}</tfoot>` : ""}
     </table>`;
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     if (!hasData()) return;
-    const html = `<html dir="rtl"><head><meta charset="utf-8"/></head><body>${tableHtml()}</body></html>`;
-    download(
-      new Blob(["\uFEFF" + html], { type: "application/vnd.ms-excel;charset=utf-8;" }),
-      "تقرير_المشتريات.xls",
-    );
-    toast.success("تم تصدير Excel");
+    const XLSX = await import("xlsx");
+    const wb = XLSX.utils.book_new();
+
+    const wsInv = XLSX.utils.aoa_to_sheet([INVOICES_HEAD, ...buildInvoiceRows()]);
+    wsInv["!cols"] = INVOICES_HEAD.map(() => ({ wch: 18 }));
+    XLSX.utils.book_append_sheet(wb, wsInv, "الفواتير");
+
+    const wsItems = XLSX.utils.aoa_to_sheet([ITEMS_HEAD, ...buildItemRows()]);
+    wsItems["!cols"] = [{ wch: 20 }, { wch: 34 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsItems, "البنود");
+
+    XLSX.writeFile(wb, "تقرير_المشتريات.xlsx");
+    toast.success("تم تصدير Excel — ورقة الفواتير وورقة البنود");
   };
 
   const exportPdf = () => {
@@ -245,12 +257,17 @@ function Index() {
       toast.error("امنع حظر النوافذ المنبثقة لتصدير PDF");
       return;
     }
+    const invFooter = `<tr><th colspan="3">الإجمالي</th><th>${nf.format(totals.subtotal)}</th><th></th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th></tr>`;
     win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
       <title>تقرير المشتريات</title>
-      <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ccc;padding:4px;text-align:right}h1{font-size:18px}</style>
+      <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px}th,td{border:1px solid #ccc;padding:4px;text-align:right}h1{font-size:18px}h2{font-size:14px;margin:12px 0 6px}</style>
       </head><body><h1>تقرير المشتريات</h1>
-      <p>${parsed.length} فاتورة · الإجمالي ${nf.format(totals.total)} · الضريبة ${nf.format(totals.tax)}</p>
-      ${tableHtml()}</body></html>`);
+      <p>${parsed.length} فاتورة · ${totals.items} بندًا · الصافي ${nf.format(totals.subtotal)} · KDV ${nf.format(totals.tax)} · الإجمالي ${nf.format(totals.total)}</p>
+      <h2>الفواتير</h2>
+      ${tableHtml(INVOICES_HEAD, buildInvoiceRows(), invFooter)}
+      <h2>البنود</h2>
+      ${tableHtml(ITEMS_HEAD, buildItemRows())}
+      </body></html>`);
     win.document.close();
     win.focus();
     setTimeout(() => win.print(), 400);
