@@ -181,7 +181,6 @@ function Index() {
           String(it.qty),
           String(it.unitPrice),
           String(it.total),
-          ...tail,
         ]);
       }
     }
