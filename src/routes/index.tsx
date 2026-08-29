@@ -142,37 +142,41 @@ function Index() {
   const rows = parsed.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const maxSupplier = totals.suppliers[0]?.[1] ?? 1;
 
-  const HEAD = [
-    "المورد",
+  const INVOICES_HEAD = [
     "رقم الفاتورة",
+    "المورد",
     "التاريخ",
-    "المنتج",
-    "الكمية",
-    "سعر الوحدة",
-    "إجمالي البند",
     "الصافي",
     "الخصم",
     "الضريبة KDV",
     "الإجمالي",
   ];
 
-  const buildRows = (): string[][] => {
+  const ITEMS_HEAD = [
+    "رقم الفاتورة",
+    "المنتج",
+    "الكمية",
+    "سعر الوحدة",
+    "إجمالي البند",
+  ];
+
+  const buildInvoiceRows = (): string[][] =>
+    parsed.map((inv) => [
+      inv.invoiceNumber || "—",
+      inv.supplier,
+      inv.date,
+      String(inv.subtotal),
+      String(inv.discount ?? 0),
+      String(inv.tax),
+      String(inv.total),
+    ]);
+
+  const buildItemRows = (): string[][] => {
     const out: string[][] = [];
     for (const inv of parsed) {
-      const tail = [
-        String(inv.subtotal),
-        String(inv.discount ?? 0),
-        String(inv.tax),
-        String(inv.total),
-      ];
-      if (inv.items.length === 0) {
-        out.push([inv.supplier, inv.invoiceNumber, inv.date, "", "", "", "", ...tail]);
-      }
       for (const it of inv.items) {
         out.push([
-          inv.supplier,
-          inv.invoiceNumber,
-          inv.date,
+          inv.invoiceNumber || "—",
           it.name,
           String(it.qty),
           String(it.unitPrice),
