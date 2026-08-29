@@ -20,6 +20,7 @@ export type ExtractedInvoice = {
   date: string;
   currency: string;
   subtotal: number;
+  discount: number;
   taxRate: number;
   tax: number;
   total: number;
@@ -28,7 +29,7 @@ export type ExtractedInvoice = {
 };
 
 const SYSTEM = `أنت محلل فواتير مشتريات. استخرج البيانات من صورة/ملف الفاتورة وأعد JSON فقط بالشكل التالي دون أي نص إضافي:
-{"supplier":"","invoiceNumber":"","date":"YYYY-MM-DD","currency":"SAR","subtotal":0,"taxRate":0.15,"tax":0,"total":0,"items":[{"name":"","qty":1,"unitPrice":0,"total":0}],"needsReview":false}
+{"supplier":"","invoiceNumber":"","date":"YYYY-MM-DD","currency":"SAR","subtotal":0,"discount":0,"taxRate":0.15,"tax":0,"total":0,"items":[{"name":"","qty":1,"unitPrice":0,"total":0}],"needsReview":false}
 القواعد: الأرقام أرقام لا نصوص. إذا كان حقل غير واضح اتركه فارغًا/صفرًا واجعل needsReview=true. taxRate كنسبة عشرية (0.15 تعني 15%).`;
 
 function num(v: unknown): number {
@@ -94,6 +95,7 @@ export const extractInvoice = createServerFn({ method: "POST" })
       : [];
 
     const subtotal = num(raw["subtotal"]);
+    const discount = num(raw["discount"]);
     const taxRate = num(raw["taxRate"]);
     const tax = num(raw["tax"]) || subtotal * taxRate;
     const total = num(raw["total"]) || subtotal + tax;
@@ -104,6 +106,7 @@ export const extractInvoice = createServerFn({ method: "POST" })
       date: String(raw["date"] ?? "").trim(),
       currency: String(raw["currency"] ?? "SAR").trim() || "SAR",
       subtotal,
+      discount,
       taxRate: taxRate || 0.15,
       tax,
       total,
