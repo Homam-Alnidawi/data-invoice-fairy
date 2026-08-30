@@ -658,6 +658,15 @@ function Index() {
 
         </div>
       </div>
+
+      {reviewJob?.data && (
+        <ReviewDialog
+          job={reviewJob}
+          onClose={() => setReviewId(null)}
+          onSave={(next) => saveReview(reviewJob.id, next)}
+        />
+      )}
     </div>
+
   );
 }
