@@ -553,7 +553,11 @@ function Index() {
               <div className="text-[11px] opacity-70">إجمالي المشتريات (شامل الضريبة)</div>
               <div className="mt-1 text-[30px] leading-none font-extrabold tracking-tight tabular-nums">
                 {nf.format(totals.total)}
-                <span className="text-[15px] font-bold opacity-80"> ر.س</span>
+                <span className="text-[15px] font-bold opacity-80">
+                  {" "}
+                  {currencySymbol(totals.currency) || "عملة غير محددة"}
+                </span>
+
               </div>
               <div className="mt-1.5 text-[10px] opacity-60">
                 {parsed.length} فاتورة · {totals.suppliers.length} موردًا · {totals.items} بندًا
