@@ -670,3 +670,167 @@ function Index() {
 
   );
 }
+
+function ReviewDialog({
+  job,
+  onClose,
+  onSave,
+}: {
+  job: Job;
+  onClose: () => void;
+  onSave: (next: ExtractedInvoice) => void;
+}) {
+  const [draft, setDraft] = useState<ExtractedInvoice>(job.data!);
+
+  const set = <K extends keyof ExtractedInvoice>(k: K, v: ExtractedInvoice[K]) =>
+    setDraft((d) => ({ ...d, [k]: v }));
+
+  const setItem = (i: number, patchItem: Partial<InvoiceItem>) =>
+    setDraft((d) => ({
+      ...d,
+      items: d.items.map((it, idx) => (idx === i ? { ...it, ...patchItem } : it)),
+    }));
+
+  const low = (v: number) => v > 0 && v < 0.6;
+
+  const field = (
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    confidence?: number,
+  ) => (
+    <label className="block">
+      <span className="text-[10px] text-muted-foreground">
+        {label}
+        {confidence !== undefined && low(confidence) && (
+          <span className="mr-1 rounded bg-amber/25 px-1 font-bold">ثقة منخفضة</span>
+        )}
+      </span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-0.5 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+      />
+    </label>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-background p-4 sm:rounded-2xl">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <div className="text-[14px] font-extrabold">مراجعة يدوية</div>
+            <div className="truncate text-[10px] text-muted-foreground">{job.fileName}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-surface px-2.5 py-1.5 text-[12px] font-bold"
+          >
+            إغلاق
+          </button>
+        </div>
+
+        {job.previewUrl && (
+          <img
+            src={job.previewUrl}
+            alt={`صورة الفاتورة ${job.fileName}`}
+            className="mb-3 max-h-64 w-full rounded-xl object-contain ring-1 ring-black/5"
+          />
+        )}
+
+        {draft.warnings.length > 0 && (
+          <ul className="mb-3 space-y-1 rounded-xl bg-amber/15 p-2.5 text-[11px]">
+            {draft.warnings.map((w) => (
+              <li key={w}>• {w}</li>
+            ))}
+          </ul>
+        )}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {field("المورد", draft.supplier ?? "", (v) => set("supplier", v || null), draft.confidence.supplier)}
+          {field(
+            "رقم الفاتورة",
+            draft.invoiceNumber ?? "",
+            (v) => set("invoiceNumber", v || null),
+            draft.confidence.invoiceNumber,
+          )}
+          {field("التاريخ", draft.date ?? "", (v) => set("date", v || null), draft.confidence.date)}
+          {field("العملة", draft.currency ?? "", (v) => set("currency", v || null))}
+          {field(
+            "الصافي",
+            String(draft.subtotal),
+            (v) => set("subtotal", Number(v) || 0),
+            draft.confidence.subtotal,
+          )}
+          {field("الخصم", String(draft.discount), (v) => set("discount", Number(v) || 0))}
+          {field(
+            "الضريبة KDV",
+            String(draft.tax),
+            (v) => set("tax", Number(v) || 0),
+            draft.confidence.tax,
+          )}
+          {field(
+            "الإجمالي",
+            String(draft.total),
+            (v) => set("total", Number(v) || 0),
+            draft.confidence.total,
+          )}
+        </div>
+
+        <div className="mt-4 text-[11px] font-semibold text-muted-foreground">البنود</div>
+        <div className="mt-1.5 space-y-2">
+          {draft.items.map((it, i) => (
+            <div key={i} className="grid grid-cols-4 gap-1.5 rounded-xl bg-surface p-2">
+              <input
+                value={it.name}
+                onChange={(e) => setItem(i, { name: e.target.value })}
+                className="col-span-4 rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="المنتج"
+              />
+              <input
+                value={String(it.qty)}
+                onChange={(e) => setItem(i, { qty: Number(e.target.value) || 0 })}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="الكمية"
+              />
+              <input
+                value={String(it.unitPrice)}
+                onChange={(e) => setItem(i, { unitPrice: Number(e.target.value) || 0 })}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="السعر"
+              />
+              <input
+                value={String(it.discount)}
+                onChange={(e) => setItem(i, { discount: Number(e.target.value) || 0 })}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="الخصم"
+              />
+              <input
+                value={String(it.total)}
+                onChange={(e) => setItem(i, { total: Number(e.target.value) || 0 })}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="الإجمالي"
+              />
+            </div>
+          ))}
+          {draft.items.length === 0 && (
+            <div className="rounded-xl bg-surface p-3 text-center text-[11px] text-muted-foreground">
+              لا توجد بنود مقروءة
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            onSave({ ...draft, status: "completed", needsReview: false, warnings: [], isInvoice: true })
+          }
+          className="mt-4 w-full rounded-xl bg-brand py-3 text-[13px] font-bold text-primary-foreground"
+        >
+          حفظ ومتابعة
+        </button>
+      </div>
+    </div>
+  );
+}
