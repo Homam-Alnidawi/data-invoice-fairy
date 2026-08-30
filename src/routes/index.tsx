@@ -27,7 +27,7 @@ export const Route = createFileRoute("/")({
 const CONCURRENCY = 4;
 const PAGE_SIZE = 8;
 
-type Status = "queued" | "processing" | "done" | "review" | "error";
+type Status = "queued" | "processing" | "done" | "review" | "rejected" | "error";
 
 type Job = {
   id: string;
@@ -35,6 +35,7 @@ type Job = {
   status: Status;
   progress: number;
   error?: string;
+  previewUrl?: string;
   data?: ExtractedInvoice;
 };
 
@@ -42,6 +43,27 @@ const nf = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+
+const dash = (v: string | null | undefined) => (v && v.trim() ? v : "غير معروف");
+
+const statusLabel: Record<Status, string> = {
+  queued: "في الانتظار",
+  processing: "Processing",
+  done: "Completed",
+  review: "Needs Review",
+  rejected: "Rejected",
+  error: "Rejected",
+};
+
+function currencySymbol(code: string | null) {
+  if (!code) return "";
+  const c = code.toUpperCase();
+  if (c === "TRY" || c === "TL") return "₺";
+  if (c === "SAR") return "ر.س";
+  if (c === "USD") return "$";
+  if (c === "EUR") return "€";
+  return code;
+}
 
 function readAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -57,6 +79,7 @@ function Index() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [page, setPage] = useState(0);
   const [running, setRunning] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const patch = useCallback((id: string, next: Partial<Job>) => {
@@ -86,16 +109,25 @@ function Index() {
           patch(job.id, { status: "processing", progress: 25 });
           try {
             const dataUrl = await readAsDataUrl(file);
-            patch(job.id, { progress: 60 });
+            patch(job.id, {
+              progress: 60,
+              previewUrl: file.type.startsWith("image/") ? dataUrl : undefined,
+            });
             const data = await extract({
               data: { fileName: file.name, mimeType: file.type, dataUrl },
             });
             patch(job.id, {
-              status: data.needsReview ? "review" : "done",
+              status:
+                data.status === "completed"
+                  ? "done"
+                  : data.status === "rejected"
+                    ? "rejected"
+                    : "review",
               progress: 100,
               data,
             });
           } catch (err) {
+            // فشل فاتورة واحدة لا يوقف البقية
             patch(job.id, {
               status: "error",
               progress: 100,
@@ -109,10 +141,18 @@ function Index() {
       setRunning(false);
       toast.success("انتهت معالجة الدفعة");
     },
-    [extract, jobs.length, patch],
+    [extract, patch],
   );
 
-  const parsed = useMemo(() => jobs.filter((j) => j.data).map((j) => j.data!), [jobs]);
+  const parsedJobs = useMemo(
+    () => jobs.filter((j) => j.data && j.data.status !== "rejected"),
+    [jobs],
+  );
+  const parsed = useMemo(() => parsedJobs.map((j) => j.data!), [parsedJobs]);
+  const reviewJobs = useMemo(
+    () => jobs.filter((j) => j.status === "review" || j.status === "rejected"),
+    [jobs],
+  );
 
   const totals = useMemo(() => {
     const subtotal = parsed.reduce((s, i) => s + i.subtotal, 0);
@@ -121,56 +161,69 @@ function Index() {
     const items = parsed.reduce((s, i) => s + i.items.length, 0);
     const bySupplier = new Map<string, number>();
     for (const inv of parsed) {
-      bySupplier.set(inv.supplier, (bySupplier.get(inv.supplier) ?? 0) + (inv.total || 0));
+      const name = dash(inv.supplier);
+      bySupplier.set(name, (bySupplier.get(name) ?? 0) + (inv.total || 0));
     }
     const suppliers = [...bySupplier.entries()].sort((a, b) => b[1] - a[1]);
-    return { subtotal, tax, total, items, suppliers };
+    const currency = parsed.find((i) => i.currency)?.currency ?? null;
+    return { subtotal, tax, total, items, suppliers, currency };
   }, [parsed]);
 
-  const doneCount = jobs.filter((j) => j.status === "done" || j.status === "review").length;
+  const doneCount = jobs.filter(
+    (j) => j.status === "done" || j.status === "review" || j.status === "rejected",
+  ).length;
   const pageCount = Math.max(1, Math.ceil(parsed.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
-  const rows = parsed.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const rows = parsedJobs.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const maxSupplier = totals.suppliers[0]?.[1] ?? 1;
 
   const INVOICES_HEAD = [
     "رقم الفاتورة",
-    "المورد",
     "التاريخ",
+    "المورد",
+    "العملة",
     "الصافي",
-    "الخصم",
     "الضريبة KDV",
     "الإجمالي",
+    "الحالة",
   ];
 
   const ITEMS_HEAD = [
     "رقم الفاتورة",
+    "المورد",
     "المنتج",
     "الكمية",
     "سعر الوحدة",
+    "الخصم",
     "إجمالي البند",
   ];
 
   const buildInvoiceRows = (): string[][] =>
-    parsed.map((inv) => [
-      inv.invoiceNumber || "—",
-      inv.supplier,
-      inv.date,
-      String(inv.subtotal),
-      String(inv.discount ?? 0),
-      String(inv.tax),
-      String(inv.total),
-    ]);
+    parsedJobs.map((j) => {
+      const inv = j.data!;
+      return [
+        dash(inv.invoiceNumber),
+        dash(inv.date),
+        dash(inv.supplier),
+        inv.currency ?? "عملة غير محددة",
+        String(inv.subtotal),
+        String(inv.tax),
+        String(inv.total),
+        statusLabel[j.status],
+      ];
+    });
 
   const buildItemRows = (): string[][] => {
     const out: string[][] = [];
     for (const inv of parsed) {
       for (const it of inv.items) {
         out.push([
-          inv.invoiceNumber || "—",
+          dash(inv.invoiceNumber),
+          dash(inv.supplier),
           it.name,
           String(it.qty),
           String(it.unitPrice),
+          String(it.discount ?? 0),
           String(it.total),
         ]);
       }
@@ -231,14 +284,22 @@ function Index() {
 
     const wsInv = XLSX.utils.aoa_to_sheet([INVOICES_HEAD, ...buildInvoiceRows()]);
     wsInv["!cols"] = INVOICES_HEAD.map(() => ({ wch: 18 }));
-    XLSX.utils.book_append_sheet(wb, wsInv, "الفواتير");
+    XLSX.utils.book_append_sheet(wb, wsInv, "Invoices");
 
     const wsItems = XLSX.utils.aoa_to_sheet([ITEMS_HEAD, ...buildItemRows()]);
-    wsItems["!cols"] = [{ wch: 20 }, { wch: 34 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(wb, wsItems, "البنود");
+    wsItems["!cols"] = [
+      { wch: 16 },
+      { wch: 22 },
+      { wch: 34 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 12 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsItems, "Items");
 
     XLSX.writeFile(wb, "تقرير_المشتريات.xlsx");
-    toast.success("تم تصدير Excel — ورقة الفواتير وورقة البنود");
+    toast.success("تم تصدير Excel — ورقة Invoices وورقة Items");
   };
 
   const exportPdf = () => {
@@ -248,7 +309,7 @@ function Index() {
       toast.error("امنع حظر النوافذ المنبثقة لتصدير PDF");
       return;
     }
-    const invFooter = `<tr><th colspan="3">الإجمالي</th><th>${nf.format(totals.subtotal)}</th><th></th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th></tr>`;
+    const invFooter = `<tr><th colspan="4">الإجمالي</th><th>${nf.format(totals.subtotal)}</th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th><th></th></tr>`;
     win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
       <title>تقرير المشتريات</title>
       <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px}th,td{border:1px solid #ccc;padding:4px;text-align:right}h1{font-size:18px}h2{font-size:14px;margin:12px 0 6px}</style>
@@ -263,6 +324,15 @@ function Index() {
     win.focus();
     setTimeout(() => win.print(), 400);
   };
+
+  const reviewJob = jobs.find((j) => j.id === reviewId) ?? null;
+
+  const saveReview = (id: string, next: ExtractedInvoice) => {
+    patch(id, { data: next, status: "done" });
+    setReviewId(null);
+    toast.success("تم حفظ المراجعة");
+  };
+
 
 
   return (
