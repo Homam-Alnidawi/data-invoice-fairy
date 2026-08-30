@@ -451,13 +451,24 @@ function Index() {
                       <div className="truncate text-[13px] font-semibold">{job.fileName}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {job.status === "queued" && "في الانتظار"}
-                        {job.status === "processing" && "معالجة OCR…"}
+                        {job.status === "processing" && "Processing · معالجة OCR…"}
                         {job.status === "done" &&
-                          `اكتملت · ${job.data?.items.length ?? 0} بنود`}
-                        {job.status === "review" && "تحتاج مراجعة يدوية"}
-                        {job.status === "error" && job.error}
+                          `Completed · ${job.data?.items.length ?? 0} بنود`}
+                        {job.status === "review" && "Needs Review · تحتاج مراجعة يدوية"}
+                        {job.status === "rejected" && "Rejected · ليست فاتورة واضحة"}
+                        {job.status === "error" && `Rejected · ${job.error ?? ""}`}
                       </div>
                     </div>
+                    {(job.status === "review" || job.status === "rejected") && job.data && (
+                      <button
+                        type="button"
+                        onClick={() => setReviewId(job.id)}
+                        className="shrink-0 rounded-lg bg-amber/20 px-2 py-1 text-[10px] font-bold"
+                      >
+                        مراجعة
+                      </button>
+                    )}
+
                     <div className="h-1 w-16 shrink-0 overflow-hidden rounded-full bg-border">
                       <div
                         className="h-full bg-brand transition-all"
