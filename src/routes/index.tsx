@@ -111,8 +111,9 @@ function Index() {
             const dataUrl = await readAsDataUrl(file);
             patch(job.id, {
               progress: 60,
-              previewUrl: file.type.startsWith("image/") ? dataUrl : undefined,
+              ...(file.type.startsWith("image/") ? { previewUrl: dataUrl } : {}),
             });
+
             const data = await extract({
               data: { fileName: file.name, mimeType: file.type, dataUrl },
             });
