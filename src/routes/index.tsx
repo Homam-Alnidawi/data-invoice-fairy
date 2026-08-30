@@ -2,7 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { extractInvoice, type ExtractedInvoice } from "@/lib/invoices.functions";
+import {
+  extractInvoice,
+  type ExtractedInvoice,
+  type InvoiceItem,
+} from "@/lib/invoices.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,7 +31,7 @@ export const Route = createFileRoute("/")({
 const CONCURRENCY = 4;
 const PAGE_SIZE = 8;
 
-type Status = "queued" | "processing" | "done" | "review" | "error";
+type Status = "queued" | "processing" | "done" | "review" | "rejected" | "error";
 
 type Job = {
   id: string;
@@ -35,6 +39,7 @@ type Job = {
   status: Status;
   progress: number;
   error?: string;
+  previewUrl?: string;
   data?: ExtractedInvoice;
 };
 
@@ -42,6 +47,27 @@ const nf = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+
+const dash = (v: string | null | undefined) => (v && v.trim() ? v : "غير معروف");
+
+const statusLabel: Record<Status, string> = {
+  queued: "في الانتظار",
+  processing: "Processing",
+  done: "Completed",
+  review: "Needs Review",
+  rejected: "Rejected",
+  error: "Rejected",
+};
+
+function currencySymbol(code: string | null) {
+  if (!code) return "";
+  const c = code.toUpperCase();
+  if (c === "TRY" || c === "TL") return "₺";
+  if (c === "SAR") return "ر.س";
+  if (c === "USD") return "$";
+  if (c === "EUR") return "€";
+  return code;
+}
 
 function readAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -57,6 +83,7 @@ function Index() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [page, setPage] = useState(0);
   const [running, setRunning] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const patch = useCallback((id: string, next: Partial<Job>) => {
@@ -86,16 +113,26 @@ function Index() {
           patch(job.id, { status: "processing", progress: 25 });
           try {
             const dataUrl = await readAsDataUrl(file);
-            patch(job.id, { progress: 60 });
+            patch(job.id, {
+              progress: 60,
+              ...(file.type.startsWith("image/") ? { previewUrl: dataUrl } : {}),
+            });
+
             const data = await extract({
               data: { fileName: file.name, mimeType: file.type, dataUrl },
             });
             patch(job.id, {
-              status: data.needsReview ? "review" : "done",
+              status:
+                data.status === "completed"
+                  ? "done"
+                  : data.status === "rejected"
+                    ? "rejected"
+                    : "review",
               progress: 100,
               data,
             });
           } catch (err) {
+            // فشل فاتورة واحدة لا يوقف البقية
             patch(job.id, {
               status: "error",
               progress: 100,
@@ -109,10 +146,18 @@ function Index() {
       setRunning(false);
       toast.success("انتهت معالجة الدفعة");
     },
-    [extract, jobs.length, patch],
+    [extract, patch],
   );
 
-  const parsed = useMemo(() => jobs.filter((j) => j.data).map((j) => j.data!), [jobs]);
+  const parsedJobs = useMemo(
+    () => jobs.filter((j) => j.data && j.data.status !== "rejected"),
+    [jobs],
+  );
+  const parsed = useMemo(() => parsedJobs.map((j) => j.data!), [parsedJobs]);
+  const reviewJobs = useMemo(
+    () => jobs.filter((j) => j.status === "review" || j.status === "rejected"),
+    [jobs],
+  );
 
   const totals = useMemo(() => {
     const subtotal = parsed.reduce((s, i) => s + i.subtotal, 0);
@@ -121,56 +166,69 @@ function Index() {
     const items = parsed.reduce((s, i) => s + i.items.length, 0);
     const bySupplier = new Map<string, number>();
     for (const inv of parsed) {
-      bySupplier.set(inv.supplier, (bySupplier.get(inv.supplier) ?? 0) + (inv.total || 0));
+      const name = dash(inv.supplier);
+      bySupplier.set(name, (bySupplier.get(name) ?? 0) + (inv.total || 0));
     }
     const suppliers = [...bySupplier.entries()].sort((a, b) => b[1] - a[1]);
-    return { subtotal, tax, total, items, suppliers };
+    const currency = parsed.find((i) => i.currency)?.currency ?? null;
+    return { subtotal, tax, total, items, suppliers, currency };
   }, [parsed]);
 
-  const doneCount = jobs.filter((j) => j.status === "done" || j.status === "review").length;
+  const doneCount = jobs.filter(
+    (j) => j.status === "done" || j.status === "review" || j.status === "rejected",
+  ).length;
   const pageCount = Math.max(1, Math.ceil(parsed.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
-  const rows = parsed.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const rows = parsedJobs.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const maxSupplier = totals.suppliers[0]?.[1] ?? 1;
 
   const INVOICES_HEAD = [
     "رقم الفاتورة",
-    "المورد",
     "التاريخ",
+    "المورد",
+    "العملة",
     "الصافي",
-    "الخصم",
     "الضريبة KDV",
     "الإجمالي",
+    "الحالة",
   ];
 
   const ITEMS_HEAD = [
     "رقم الفاتورة",
+    "المورد",
     "المنتج",
     "الكمية",
     "سعر الوحدة",
+    "الخصم",
     "إجمالي البند",
   ];
 
   const buildInvoiceRows = (): string[][] =>
-    parsed.map((inv) => [
-      inv.invoiceNumber || "—",
-      inv.supplier,
-      inv.date,
-      String(inv.subtotal),
-      String(inv.discount ?? 0),
-      String(inv.tax),
-      String(inv.total),
-    ]);
+    parsedJobs.map((j) => {
+      const inv = j.data!;
+      return [
+        dash(inv.invoiceNumber),
+        dash(inv.date),
+        dash(inv.supplier),
+        inv.currency ?? "عملة غير محددة",
+        String(inv.subtotal),
+        String(inv.tax),
+        String(inv.total),
+        statusLabel[j.status],
+      ];
+    });
 
   const buildItemRows = (): string[][] => {
     const out: string[][] = [];
     for (const inv of parsed) {
       for (const it of inv.items) {
         out.push([
-          inv.invoiceNumber || "—",
+          dash(inv.invoiceNumber),
+          dash(inv.supplier),
           it.name,
           String(it.qty),
           String(it.unitPrice),
+          String(it.discount ?? 0),
           String(it.total),
         ]);
       }
@@ -231,14 +289,22 @@ function Index() {
 
     const wsInv = XLSX.utils.aoa_to_sheet([INVOICES_HEAD, ...buildInvoiceRows()]);
     wsInv["!cols"] = INVOICES_HEAD.map(() => ({ wch: 18 }));
-    XLSX.utils.book_append_sheet(wb, wsInv, "الفواتير");
+    XLSX.utils.book_append_sheet(wb, wsInv, "Invoices");
 
     const wsItems = XLSX.utils.aoa_to_sheet([ITEMS_HEAD, ...buildItemRows()]);
-    wsItems["!cols"] = [{ wch: 20 }, { wch: 34 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(wb, wsItems, "البنود");
+    wsItems["!cols"] = [
+      { wch: 16 },
+      { wch: 22 },
+      { wch: 34 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 12 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsItems, "Items");
 
     XLSX.writeFile(wb, "تقرير_المشتريات.xlsx");
-    toast.success("تم تصدير Excel — ورقة الفواتير وورقة البنود");
+    toast.success("تم تصدير Excel — ورقة Invoices وورقة Items");
   };
 
   const exportPdf = () => {
@@ -248,7 +314,7 @@ function Index() {
       toast.error("امنع حظر النوافذ المنبثقة لتصدير PDF");
       return;
     }
-    const invFooter = `<tr><th colspan="3">الإجمالي</th><th>${nf.format(totals.subtotal)}</th><th></th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th></tr>`;
+    const invFooter = `<tr><th colspan="4">الإجمالي</th><th>${nf.format(totals.subtotal)}</th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th><th></th></tr>`;
     win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
       <title>تقرير المشتريات</title>
       <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px}th,td{border:1px solid #ccc;padding:4px;text-align:right}h1{font-size:18px}h2{font-size:14px;margin:12px 0 6px}</style>
@@ -263,6 +329,15 @@ function Index() {
     win.focus();
     setTimeout(() => win.print(), 400);
   };
+
+  const reviewJob = jobs.find((j) => j.id === reviewId) ?? null;
+
+  const saveReview = (id: string, next: ExtractedInvoice) => {
+    patch(id, { data: next, status: "done" });
+    setReviewId(null);
+    toast.success("تم حفظ المراجعة");
+  };
+
 
 
   return (
@@ -380,13 +455,24 @@ function Index() {
                       <div className="truncate text-[13px] font-semibold">{job.fileName}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {job.status === "queued" && "في الانتظار"}
-                        {job.status === "processing" && "معالجة OCR…"}
+                        {job.status === "processing" && "Processing · معالجة OCR…"}
                         {job.status === "done" &&
-                          `اكتملت · ${job.data?.items.length ?? 0} بنود`}
-                        {job.status === "review" && "تحتاج مراجعة يدوية"}
-                        {job.status === "error" && job.error}
+                          `Completed · ${job.data?.items.length ?? 0} بنود`}
+                        {job.status === "review" && "Needs Review · تحتاج مراجعة يدوية"}
+                        {job.status === "rejected" && "Rejected · ليست فاتورة واضحة"}
+                        {job.status === "error" && `Rejected · ${job.error ?? ""}`}
                       </div>
                     </div>
+                    {(job.status === "review" || job.status === "rejected") && job.data && (
+                      <button
+                        type="button"
+                        onClick={() => setReviewId(job.id)}
+                        className="shrink-0 rounded-lg bg-amber/20 px-2 py-1 text-[10px] font-bold"
+                      >
+                        مراجعة
+                      </button>
+                    )}
+
                     <div className="h-1 w-16 shrink-0 overflow-hidden rounded-full bg-border">
                       <div
                         className="h-full bg-brand transition-all"
@@ -401,7 +487,19 @@ function Index() {
         </section>
 
         <section className="mt-6">
-          <div className="mb-2 text-[11px] font-semibold text-brand">(ب) البيانات المستخرجة</div>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[11px] font-semibold text-brand">(ب) البيانات المستخرجة</div>
+            {reviewJobs.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setReviewId(reviewJobs[0]!.id)}
+                className="rounded-full bg-amber/25 px-2.5 py-1 text-[10px] font-bold"
+              >
+                {reviewJobs.length} تحتاج مراجعة يدوية
+              </button>
+            )}
+          </div>
+
           <div className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
             <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-border px-3 py-2 text-[10px] font-semibold text-muted-foreground">
               <span>المورد</span>
@@ -412,22 +510,45 @@ function Index() {
                 لا توجد بيانات بعد — ارفع فواتيرك لتظهر هنا
               </div>
             ) : (
-              rows.map((inv, i) => (
-                <div
-                  key={`${inv.invoiceNumber}-${i}`}
-                  className="animate-rise grid grid-cols-[1fr_auto] items-center gap-2 border-b border-border px-3 py-2.5 last:border-0"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-semibold">{inv.supplier}</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {inv.date || "بدون تاريخ"} · {inv.items.length} بنود
-                      {inv.invoiceNumber ? ` · #${inv.invoiceNumber}` : ""}
+              rows.map((job, i) => {
+                const inv = job.data!;
+                return (
+                  <div
+                    key={`${job.id}-${i}`}
+                    className="animate-rise grid grid-cols-[1fr_auto] items-center gap-2 border-b border-border px-3 py-2.5 last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-[13px] font-semibold">
+                          {dash(inv.supplier)}
+                        </span>
+                        {job.status === "review" && (
+                          <button
+                            type="button"
+                            onClick={() => setReviewId(job.id)}
+                            className="shrink-0 rounded-full bg-amber/20 px-2 py-0.5 text-[9px] font-bold text-foreground"
+                          >
+                            مراجعة يدوية
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {inv.date || "بدون تاريخ"} · {inv.items.length} بنود
+                        {inv.invoiceNumber ? ` · #${inv.invoiceNumber}` : ""}
+                        {inv.handwritten ? " · خط يد" : ""}
+                      </div>
+                    </div>
+                    <div className="text-[13px] font-bold tabular-nums">
+                      {nf.format(inv.total)}{" "}
+                      <span className="text-[10px] font-semibold text-muted-foreground">
+                        {currencySymbol(inv.currency)}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-[13px] font-bold tabular-nums">{nf.format(inv.total)}</div>
-                </div>
-              ))
+                );
+              })
             )}
+
             <div className="flex items-center justify-between gap-2 bg-brand-soft/25 px-3 py-2.5 text-[11px] text-muted-foreground">
               <button
                 type="button"
@@ -459,7 +580,11 @@ function Index() {
               <div className="text-[11px] opacity-70">إجمالي المشتريات (شامل الضريبة)</div>
               <div className="mt-1 text-[30px] leading-none font-extrabold tracking-tight tabular-nums">
                 {nf.format(totals.total)}
-                <span className="text-[15px] font-bold opacity-80"> ر.س</span>
+                <span className="text-[15px] font-bold opacity-80">
+                  {" "}
+                  {currencySymbol(totals.currency) || "عملة غير محددة"}
+                </span>
+
               </div>
               <div className="mt-1.5 text-[10px] opacity-60">
                 {parsed.length} فاتورة · {totals.suppliers.length} موردًا · {totals.items} بندًا
@@ -548,6 +673,179 @@ function Index() {
           </div>
 
         </div>
+      </div>
+
+      {reviewJob?.data && (
+        <ReviewDialog
+          job={reviewJob}
+          onClose={() => setReviewId(null)}
+          onSave={(next) => saveReview(reviewJob.id, next)}
+        />
+      )}
+    </div>
+
+  );
+}
+
+function ReviewDialog({
+  job,
+  onClose,
+  onSave,
+}: {
+  job: Job;
+  onClose: () => void;
+  onSave: (next: ExtractedInvoice) => void;
+}) {
+  const [draft, setDraft] = useState<ExtractedInvoice>(job.data!);
+
+  const set = <K extends keyof ExtractedInvoice>(k: K, v: ExtractedInvoice[K]) =>
+    setDraft((d) => ({ ...d, [k]: v }));
+
+  const setItem = (i: number, patchItem: Partial<InvoiceItem>) =>
+    setDraft((d) => ({
+      ...d,
+      items: d.items.map((it, idx) => (idx === i ? { ...it, ...patchItem } : it)),
+    }));
+
+  const low = (v: number) => v > 0 && v < 0.6;
+
+  const field = (
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    confidence?: number,
+  ) => (
+    <label className="block">
+      <span className="text-[10px] text-muted-foreground">
+        {label}
+        {confidence !== undefined && low(confidence) && (
+          <span className="mr-1 rounded bg-amber/25 px-1 font-bold">ثقة منخفضة</span>
+        )}
+      </span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-0.5 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+      />
+    </label>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-background p-4 sm:rounded-2xl">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <div className="text-[14px] font-extrabold">مراجعة يدوية</div>
+            <div className="truncate text-[10px] text-muted-foreground">{job.fileName}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-surface px-2.5 py-1.5 text-[12px] font-bold"
+          >
+            إغلاق
+          </button>
+        </div>
+
+        {job.previewUrl && (
+          <img
+            src={job.previewUrl}
+            alt={`صورة الفاتورة ${job.fileName}`}
+            className="mb-3 max-h-64 w-full rounded-xl object-contain ring-1 ring-black/5"
+          />
+        )}
+
+        {draft.warnings.length > 0 && (
+          <ul className="mb-3 space-y-1 rounded-xl bg-amber/15 p-2.5 text-[11px]">
+            {draft.warnings.map((w) => (
+              <li key={w}>• {w}</li>
+            ))}
+          </ul>
+        )}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {field("المورد", draft.supplier ?? "", (v) => set("supplier", v || null), draft.confidence.supplier)}
+          {field(
+            "رقم الفاتورة",
+            draft.invoiceNumber ?? "",
+            (v) => set("invoiceNumber", v || null),
+            draft.confidence.invoiceNumber,
+          )}
+          {field("التاريخ", draft.date ?? "", (v) => set("date", v || null), draft.confidence.date)}
+          {field("العملة", draft.currency ?? "", (v) => set("currency", v || null))}
+          {field(
+            "الصافي",
+            String(draft.subtotal),
+            (v) => set("subtotal", Number(v) || 0),
+            draft.confidence.subtotal,
+          )}
+          {field("الخصم", String(draft.discount), (v) => set("discount", Number(v) || 0))}
+          {field(
+            "الضريبة KDV",
+            String(draft.tax),
+            (v) => set("tax", Number(v) || 0),
+            draft.confidence.tax,
+          )}
+          {field(
+            "الإجمالي",
+            String(draft.total),
+            (v) => set("total", Number(v) || 0),
+            draft.confidence.total,
+          )}
+        </div>
+
+        <div className="mt-4 text-[11px] font-semibold text-muted-foreground">البنود</div>
+        <div className="mt-1.5 space-y-2">
+          {draft.items.map((it, i) => (
+            <div key={i} className="grid grid-cols-4 gap-1.5 rounded-xl bg-surface p-2">
+              <input
+                value={it.name}
+                onChange={(e) => setItem(i, { name: e.target.value })}
+                className="col-span-4 rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="المنتج"
+              />
+              <input
+                value={String(it.qty)}
+                onChange={(e) => setItem(i, { qty: Number(e.target.value) || 0 })}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="الكمية"
+              />
+              <input
+                value={String(it.unitPrice)}
+                onChange={(e) => setItem(i, { unitPrice: Number(e.target.value) || 0 })}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="السعر"
+              />
+              <input
+                value={String(it.discount)}
+                onChange={(e) => setItem(i, { discount: Number(e.target.value) || 0 })}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="الخصم"
+              />
+              <input
+                value={String(it.total)}
+                onChange={(e) => setItem(i, { total: Number(e.target.value) || 0 })}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
+                placeholder="الإجمالي"
+              />
+            </div>
+          ))}
+          {draft.items.length === 0 && (
+            <div className="rounded-xl bg-surface p-3 text-center text-[11px] text-muted-foreground">
+              لا توجد بنود مقروءة
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            onSave({ ...draft, status: "completed", needsReview: false, warnings: [], isInvoice: true })
+          }
+          className="mt-4 w-full rounded-xl bg-brand py-3 text-[13px] font-bold text-primary-foreground"
+        >
+          حفظ ومتابعة
+        </button>
       </div>
     </div>
   );
