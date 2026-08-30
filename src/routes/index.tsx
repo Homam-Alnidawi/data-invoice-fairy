@@ -2,7 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { extractInvoice, type ExtractedInvoice } from "@/lib/invoices.functions";
+import {
+  extractInvoice,
+  type ExtractedInvoice,
+  type InvoiceItem,
+} from "@/lib/invoices.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
