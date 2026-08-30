@@ -483,22 +483,45 @@ function Index() {
                 لا توجد بيانات بعد — ارفع فواتيرك لتظهر هنا
               </div>
             ) : (
-              rows.map((inv, i) => (
-                <div
-                  key={`${inv.invoiceNumber}-${i}`}
-                  className="animate-rise grid grid-cols-[1fr_auto] items-center gap-2 border-b border-border px-3 py-2.5 last:border-0"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-semibold">{inv.supplier}</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {inv.date || "بدون تاريخ"} · {inv.items.length} بنود
-                      {inv.invoiceNumber ? ` · #${inv.invoiceNumber}` : ""}
+              rows.map((job, i) => {
+                const inv = job.data!;
+                return (
+                  <div
+                    key={`${job.id}-${i}`}
+                    className="animate-rise grid grid-cols-[1fr_auto] items-center gap-2 border-b border-border px-3 py-2.5 last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-[13px] font-semibold">
+                          {dash(inv.supplier)}
+                        </span>
+                        {job.status === "review" && (
+                          <button
+                            type="button"
+                            onClick={() => setReviewId(job.id)}
+                            className="shrink-0 rounded-full bg-amber/20 px-2 py-0.5 text-[9px] font-bold text-foreground"
+                          >
+                            مراجعة يدوية
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {inv.date || "بدون تاريخ"} · {inv.items.length} بنود
+                        {inv.invoiceNumber ? ` · #${inv.invoiceNumber}` : ""}
+                        {inv.handwritten ? " · خط يد" : ""}
+                      </div>
+                    </div>
+                    <div className="text-[13px] font-bold tabular-nums">
+                      {nf.format(inv.total)}{" "}
+                      <span className="text-[10px] font-semibold text-muted-foreground">
+                        {currencySymbol(inv.currency)}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-[13px] font-bold tabular-nums">{nf.format(inv.total)}</div>
-                </div>
-              ))
+                );
+              })
             )}
+
             <div className="flex items-center justify-between gap-2 bg-brand-soft/25 px-3 py-2.5 text-[11px] text-muted-foreground">
               <button
                 type="button"
