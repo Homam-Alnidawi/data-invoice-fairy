@@ -81,15 +81,67 @@ function readAsDataUrl(file: File) {
 
 function Index() {
   const extract = useServerFn(extractInvoice);
+  const navigate = useNavigate();
+  const { user } = Route.useRouteContext();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [page, setPage] = useState(0);
   const [running, setRunning] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const patch = useCallback((id: string, next: Partial<Job>) => {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...next } : j)));
   }, []);
+
+  // تحميل فواتير هذا المستخدم فقط (محميّة بقواعد RLS في قاعدة البيانات)
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("invoices")
+        .select("id, file_name, status, data")
+        .order("created_at", { ascending: false });
+      if (error || !alive || !data) return;
+      const saved: Job[] = data.map((row) => ({
+        id: row.id,
+        fileName: row.file_name,
+        status: (row.status as Status) ?? "done",
+        progress: 100,
+        data: row.data as unknown as ExtractedInvoice,
+      }));
+      setJobs((prev) => [...prev, ...saved]);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const persist = useCallback(
+    async (fileName: string, status: Status, inv: ExtractedInvoice) => {
+      const { error } = await supabase.from("invoices").insert({
+        user_id: user.id,
+        file_name: fileName,
+        status,
+        supplier: inv.supplier,
+        invoice_number: inv.invoiceNumber,
+        invoice_date: inv.date,
+        currency: inv.currency,
+        subtotal: inv.subtotal,
+        discount: inv.discount,
+        tax: inv.tax,
+        total: inv.total,
+        data: inv as unknown as Record<string, unknown>,
+      });
+      if (error) console.error(error);
+    },
+    [user.id],
+  );
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    void navigate({ to: "/login", replace: true });
+  }, [navigate]);
 
   const handleFiles = useCallback(
     async (fileList: FileList | null) => {
