@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const Input = z.object({
   fileName: z.string(),
@@ -96,6 +97,7 @@ const LOW = 0.6;
 const EPS = 0.05; // هامش خطأ نسبي بسيط
 
 export const extractInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ExtractedInvoice> => {
     const key = process.env["LOVABLE_API_KEY"];
