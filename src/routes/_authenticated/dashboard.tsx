@@ -131,7 +131,7 @@ function Index() {
         discount: inv.discount,
         tax: inv.tax,
         total: inv.total,
-        data: inv as unknown as Record<string, unknown>,
+        data: inv as unknown as never,
       });
       if (error) console.error(error);
     },
