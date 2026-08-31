@@ -8,7 +8,7 @@ import {
   type InvoiceItem,
 } from "@/lib/invoices.functions";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
       { title: "دفتر — قراءة فواتير المشتريات بالذكاء الاصطناعي" },
