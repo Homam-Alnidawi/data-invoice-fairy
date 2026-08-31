@@ -14,7 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      invoices: {
+        Row: {
+          created_at: string
+          currency: string | null
+          data: Json
+          discount: number
+          file_name: string
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          status: string
+          subtotal: number
+          supplier: string | null
+          tax: number
+          total: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          data: Json
+          discount?: number
+          file_name: string
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          status?: string
+          subtotal?: number
+          supplier?: string | null
+          tax?: number
+          total?: number
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          data?: Json
+          discount?: number
+          file_name?: string
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          status?: string
+          subtotal?: number
+          supplier?: string | null
+          tax?: number
+          total?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
