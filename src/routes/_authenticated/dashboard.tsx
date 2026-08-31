@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   extractInvoice,
   type ExtractedInvoice,
@@ -11,7 +12,7 @@ import {
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "دفتر — قراءة فواتير المشتريات بالذكاء الاصطناعي" },
+      { title: "لوحة التحكم — دفتر" },
       {
         name: "description",
         content:
