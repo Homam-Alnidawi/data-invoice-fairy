@@ -197,7 +197,7 @@ function Index() {
       setRunning(false);
       toast.success("انتهت معالجة الدفعة");
     },
-    [extract, patch],
+    [extract, patch, persist],
   );
 
   const parsedJobs = useMemo(
@@ -406,9 +406,33 @@ function Index() {
               </div>
             </div>
           </div>
-          <span className="rounded-full bg-brand-soft/60 px-3 py-1 text-[11px] font-semibold">
-            عدد غير محدود من الفواتير
-          </span>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="max-w-[150px] truncate rounded-full bg-brand-soft/60 px-3 py-1 text-[11px] font-semibold"
+              dir="ltr"
+            >
+              {user.email}
+            </button>
+            {menuOpen && (
+              <div className="absolute left-0 z-30 mt-2 w-44 overflow-hidden rounded-xl bg-surface text-right shadow-lg ring-1 ring-black/10">
+                <div className="border-b border-border px-3 py-2">
+                  <div className="text-[10px] text-muted-foreground">الحساب</div>
+                  <div dir="ltr" className="truncate text-[11px] font-semibold">
+                    {user.email}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void signOut()}
+                  className="w-full px-3 py-2 text-right text-[12px] font-bold text-foreground hover:bg-brand-soft/40"
+                >
+                  تسجيل الخروج
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
