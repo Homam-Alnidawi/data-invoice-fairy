@@ -174,16 +174,14 @@ function Index() {
             const data = await extract({
               data: { fileName: file.name, mimeType: file.type, dataUrl },
             });
-            patch(job.id, {
-              status:
-                data.status === "completed"
-                  ? "done"
-                  : data.status === "rejected"
-                    ? "rejected"
-                    : "review",
-              progress: 100,
-              data,
-            });
+            const nextStatus: Status =
+              data.status === "completed"
+                ? "done"
+                : data.status === "rejected"
+                  ? "rejected"
+                  : "review";
+            patch(job.id, { status: nextStatus, progress: 100, data });
+            void persist(file.name, nextStatus, data);
           } catch (err) {
             // فشل فاتورة واحدة لا يوقف البقية
             patch(job.id, {
