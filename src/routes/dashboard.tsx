@@ -789,26 +789,26 @@ function Index() {
 
         <section className="mt-6">
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-[11px] font-semibold text-brand">(ب) البيانات المستخرجة</div>
+            <div className="text-[11px] font-semibold text-brand">{t("dash.secB")}</div>
             {reviewJobs.length > 0 && (
               <button
                 type="button"
                 onClick={() => setReviewId(reviewJobs[0]!.id)}
                 className="rounded-full bg-amber/25 px-2.5 py-1 text-[10px] font-bold"
               >
-                {reviewJobs.length} تحتاج مراجعة يدوية
+                {t("dash.needReview", { n: reviewJobs.length })}
               </button>
             )}
           </div>
 
           <div className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
             <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-border px-3 py-2 text-[10px] font-semibold text-muted-foreground">
-              <span>المورد</span>
-              <span>المبلغ</span>
+              <span>{t("dash.supplier")}</span>
+              <span>{t("dash.amount")}</span>
             </div>
             {rows.length === 0 ? (
               <div className="px-3 py-8 text-center text-[12px] text-muted-foreground">
-                لا توجد بيانات بعد — ارفع فواتيرك لتظهر هنا
+                {t("dash.empty")}
               </div>
             ) : (
               rows.map((job, i) => {
@@ -829,14 +829,14 @@ function Index() {
                             onClick={() => setReviewId(job.id)}
                             className="shrink-0 rounded-full bg-amber/20 px-2 py-0.5 text-[9px] font-bold text-foreground"
                           >
-                            مراجعة يدوية
+                            {t("dash.manualReview")}
                           </button>
                         )}
                       </div>
                       <div className="text-[10px] text-muted-foreground">
-                        {inv.date || "بدون تاريخ"} · {inv.items.length} بنود
+                        {inv.date || t("dash.noDate")} · {t("dash.itemsCount", { n: inv.items.length })}
                         {inv.invoiceNumber ? ` · #${inv.invoiceNumber}` : ""}
-                        {inv.handwritten ? " · خط يد" : ""}
+                        {inv.handwritten ? ` · ${t("dash.handwritten")}` : ""}
                       </div>
                     </div>
                     <div className="text-[13px] font-bold tabular-nums">
@@ -860,7 +860,7 @@ function Index() {
                 ›
               </button>
               <span>
-                عرض {rows.length} من {parsed.length} · صفحة {currentPage + 1} / {pageCount}
+                {t("dash.showing", { a: rows.length, b: parsed.length, c: currentPage + 1, d: pageCount })}
               </span>
               <button
                 type="button"
