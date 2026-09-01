@@ -351,24 +351,24 @@ function Index() {
   const maxSupplier = totals.suppliers[0]?.[1] ?? 1;
 
   const INVOICES_HEAD = [
-    "رقم الفاتورة",
-    "التاريخ",
-    "المورد",
-    "العملة",
-    "الصافي",
-    "الضريبة KDV",
-    "الإجمالي",
-    "الحالة",
+    t("col.invNumber"),
+    t("col.date"),
+    t("col.supplier"),
+    t("col.currency"),
+    t("col.net"),
+    t("col.tax"),
+    t("col.total"),
+    t("col.status"),
   ];
 
   const ITEMS_HEAD = [
-    "رقم الفاتورة",
-    "المورد",
-    "المنتج",
-    "الكمية",
-    "سعر الوحدة",
-    "الخصم",
-    "إجمالي البند",
+    t("col.invNumber"),
+    t("col.supplier"),
+    t("col.product"),
+    t("col.qty"),
+    t("col.unitPrice"),
+    t("col.discount"),
+    t("col.lineTotal"),
   ];
 
   const buildInvoiceRows = (): string[][] =>
@@ -378,11 +378,11 @@ function Index() {
         dash(inv.invoiceNumber),
         dash(inv.date),
         dash(inv.supplier),
-        inv.currency ?? "عملة غير محددة",
+        inv.currency ?? t("dash.currencyUnknown"),
         String(inv.subtotal),
         String(inv.tax),
         String(inv.total),
-        statusLabel[j.status],
+        statusLabel(j.status),
       ];
     });
 
@@ -418,7 +418,7 @@ function Index() {
 
   const hasData = () => {
     if (parsed.length === 0) {
-      toast.error("لا توجد بيانات للتصدير — ارفع فواتير أولًا");
+      toast.error(t("dash.toast.noData"));
       return false;
     }
     return true;
@@ -435,7 +435,7 @@ function Index() {
     download(csvBlob(INVOICES_HEAD, buildInvoiceRows()), "الفواتير.csv");
     setTimeout(() => download(csvBlob(ITEMS_HEAD, buildItemRows()), "البنود.csv"), 600);
     void trackFn({ data: { action: "csv_export" } }).catch(() => undefined);
-    toast.success("تم تصدير ملفين: الفواتير + البنود");
+    toast.success(t("dash.toast.csvDone"));
   };
 
   const tableHtml = (head: string[], rows: string[][], footer?: string) => {
@@ -474,7 +474,7 @@ function Index() {
     XLSX.utils.book_append_sheet(wb, wsItems, "Items");
 
     XLSX.writeFile(wb, "تقرير_المشتريات.xlsx");
-    toast.success("تم تصدير Excel — ورقة Invoices وورقة Items");
+    toast.success(t("dash.toast.excelDone"));
   };
 
   const exportPdf = () => {
@@ -482,18 +482,18 @@ function Index() {
     void trackFn({ data: { action: "pdf_export" } }).catch(() => undefined);
     const win = window.open("", "_blank");
     if (!win) {
-      toast.error("امنع حظر النوافذ المنبثقة لتصدير PDF");
+      toast.error(t("dash.toast.popup"));
       return;
     }
     const invFooter = `<tr><th colspan="4">الإجمالي</th><th>${nf.format(totals.subtotal)}</th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th><th></th></tr>`;
-    win.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
-      <title>تقرير المشتريات</title>
+    win.document.write(`<html dir="${lang === "ar" ? "rtl" : "ltr"}" lang="${lang}"><head><meta charset="utf-8"/>
+      <title>${t("dash.pdf.title")}</title>
       <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px}th,td{border:1px solid #ccc;padding:4px;text-align:right}h1{font-size:18px}h2{font-size:14px;margin:12px 0 6px}</style>
-      </head><body><h1>تقرير المشتريات</h1>
-      <p>${parsed.length} فاتورة · ${totals.items} بندًا · الصافي ${nf.format(totals.subtotal)} · KDV ${nf.format(totals.tax)} · الإجمالي ${nf.format(totals.total)}</p>
-      <h2>الفواتير</h2>
+      </head><body><h1>${t("dash.pdf.title")}</h1>
+      <p>${t("dash.pdf.summary", { inv: parsed.length, items: totals.items, sub: nf.format(totals.subtotal), tax: nf.format(totals.tax), total: nf.format(totals.total) })}</p>
+      <h2>${t("dash.pdf.invoices")}</h2>
       ${tableHtml(INVOICES_HEAD, buildInvoiceRows(), invFooter)}
-      <h2>البنود</h2>
+      <h2>${t("dash.pdf.items")}</h2>
       ${tableHtml(ITEMS_HEAD, buildItemRows())}
       </body></html>`);
     win.document.close();
@@ -506,7 +506,7 @@ function Index() {
   const saveReview = (id: string, next: ExtractedInvoice) => {
     patch(id, { data: next, status: "done" });
     setReviewId(null);
-    toast.success("تم حفظ المراجعة");
+    toast.success(t("dash.toast.reviewSaved"));
     if (isPro) {
       void supabase
         .from("invoices")
