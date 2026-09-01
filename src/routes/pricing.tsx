@@ -39,8 +39,11 @@ const PRO_FEATURES = [
 function Pricing() {
   const usageFn = useServerFn(getUsageState);
   const plansFn = useServerFn(listPublicPlans);
+  const providersFn = useServerFn(listAvailablePaymentProviders);
   const [usage, setUsage] = useState<UsageState | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [providers, setProviders] = useState<PublicProvider[]>([]);
+  const [provider, setProvider] = useState<string | null>(null);
 
   useEffect(() => {
     void usageFn({})
@@ -49,7 +52,13 @@ function Pricing() {
     void plansFn()
       .then(setPlans)
       .catch(() => undefined);
-  }, [usageFn, plansFn]);
+    void providersFn()
+      .then((list) => {
+        setProviders(list);
+        setProvider(list[0]?.id ?? null);
+      })
+      .catch(() => undefined);
+  }, [usageFn, plansFn, providersFn]);
 
   const isPro = usage?.kind === "pro";
   const freePlan = plans.find((p) => p.code === "free");
@@ -59,7 +68,12 @@ function Pricing() {
   const proFeatures = proPlan?.features.length ? proPlan.features : PRO_FEATURES;
 
   const subscribe = () => {
-    toast.info("الدفع عبر Stripe قيد التفعيل — سيتم تحويلك إلى صفحة الدفع فور تفعيله.");
+    const chosen = providers.find((p) => p.id === provider);
+    if (!chosen) {
+      toast.error("اختر طريقة دفع متاحة أولًا.");
+      return;
+    }
+    toast.info(`سيتم تحويلك إلى ${chosen.displayName} لإتمام الدفع.`);
   };
 
   return (
