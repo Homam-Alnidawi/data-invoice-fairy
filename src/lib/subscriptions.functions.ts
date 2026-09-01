@@ -170,7 +170,7 @@ export const adminUpdatePlan = createServerFn({ method: "POST" })
     const { assertAdmin, audit, db } = await ctx();
     const actor = await assertAdmin();
 
-    const patch: Record<string, unknown> = {};
+    const patch: Record<string, string | number | boolean> = {};
     if (data.name !== undefined) patch["name"] = data.name;
     if (data.priceCents !== undefined) patch["price_cents"] = data.priceCents;
     if (data.currency !== undefined) patch["currency"] = data.currency;
@@ -178,7 +178,7 @@ export const adminUpdatePlan = createServerFn({ method: "POST" })
     if (data.processingLimit !== undefined) patch["processing_limit"] = data.processingLimit;
     if (data.isActive !== undefined) patch["is_active"] = data.isActive;
 
-    const { error } = await db.from("plans").update(patch).eq("code", data.code);
+    const { error } = await db.from("plans").update(patch as never).eq("code", data.code);
     if (error) throw new Error(error.message);
 
     // كل من هو على هذه الخطة يجب أن تُحدَّث حدوده فورًا
@@ -187,7 +187,7 @@ export const adminUpdatePlan = createServerFn({ method: "POST" })
       await db.rpc("sync_profile_subscription", { _user_id: h.id } as never);
     }
 
-    await audit(actor, "admin_updated_plan", null, { plan: data.code, ...patch });
+    await audit(actor, "admin_updated_plan", undefined, { plan: data.code, ...patch });
     return { ok: true };
   });
 
