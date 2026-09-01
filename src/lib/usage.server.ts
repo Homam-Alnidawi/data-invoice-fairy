@@ -91,7 +91,7 @@ export async function readPlanState(): Promise<PlanState> {
 
   const { data } = await db.rpc("ensure_profile", {
     _user_id: user.id,
-    _email: user.email,
+    _email: user.email ?? undefined,
   });
   const p = (Array.isArray(data) ? data[0] : data) as
     | {
@@ -144,7 +144,7 @@ export async function consumeQuota(): Promise<QuotaTicket> {
 
   const { data, error } = await db.rpc("consume_invoice_quota", {
     _user_id: user.id,
-    _email: user.email,
+    _email: user.email ?? undefined,
   });
   if (error) throw new Error("تعذّر التحقق من رصيد حسابك");
   const r = data as unknown as { allowed: boolean; used: number; limit: number; plan: string };
