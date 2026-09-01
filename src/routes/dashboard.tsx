@@ -244,7 +244,7 @@ function Index() {
       }
       if (usage && files.length > remaining) {
         files = files.slice(0, remaining);
-        toast.error(`رصيدك يسمح بمعالجة ${remaining} فاتورة فقط الآن`);
+        toast.error(t("dash.toast.remaining", { n: remaining }));
       }
 
       const newJobs: Job[] = files.map((f, i) => ({
@@ -267,7 +267,7 @@ function Index() {
             patch(newJobs[index]!.id, {
               status: "error",
               progress: 100,
-              error: "انتهى الرصيد المجاني",
+              error: t("dash.toast.quotaEnd"),
             });
             continue;
           }
@@ -275,7 +275,7 @@ function Index() {
           const job = newJobs[index]!;
           patch(job.id, { status: "processing", progress: 25 });
           try {
-            const dataUrl = await readAsDataUrl(file);
+            const dataUrl = await readAsDataUrl(file, t("dash.toast.readFail"));
             patch(job.id, { progress: 60 });
 
             const data = await extract({
@@ -290,7 +290,7 @@ function Index() {
             patch(job.id, { status: nextStatus, progress: 100, data });
             void persist(file.name, nextStatus, data);
           } catch (err) {
-            const message = err instanceof Error ? err.message : "خطأ غير معروف";
+            const message = err instanceof Error ? err.message : t("dash.unknownError");
             const quota = parseQuotaError(message);
             if (quota) {
               quotaHit = true;
@@ -298,7 +298,7 @@ function Index() {
               patch(job.id, {
                 status: "error",
                 progress: 100,
-                error: "انتهى رصيدك — قم بالترقية",
+                error: t("dash.toast.quota"),
               });
             } else {
               // فشل فاتورة واحدة لا يوقف البقية (ولا يُخصم رصيد)
@@ -311,7 +311,7 @@ function Index() {
       await Promise.all(Array.from({ length: CONCURRENCY }, worker));
       setRunning(false);
       void refreshUsage();
-      if (!quotaHit) toast.success("انتهت معالجة الدفعة");
+      if (!quotaHit) toast.success(t("dash.toast.batchDone"));
     },
     [extract, patch, persist, usage, refreshUsage],
   );
