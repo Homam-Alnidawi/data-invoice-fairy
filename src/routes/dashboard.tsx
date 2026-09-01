@@ -128,6 +128,10 @@ function Index() {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openMonth, setOpenMonth] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; job: Job | null }>({
+    open: false,
+    job: null,
+  });
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isPro = usage?.kind === "pro";
