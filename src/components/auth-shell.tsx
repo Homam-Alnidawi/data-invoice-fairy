@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { LanguageSwitcher, useI18n } from "@/lib/i18n";
 import type { ReactNode } from "react";
 
 export const field =
@@ -16,21 +17,21 @@ export function AuthShell({
   subtitle: string;
   children: ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <Link to="/" className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-brand text-base leading-none font-extrabold text-primary-foreground">
-              دف
+              {t("brand.mark")}
             </div>
             <div className="leading-none">
-              <div className="text-[15px] font-extrabold tracking-tight">دفتر</div>
-              <div className="mt-0.5 text-[10px] text-muted-foreground">
-                فواتير المشتريات الذكية
-              </div>
+              <div className="text-[15px] font-extrabold tracking-tight">{t("brand.name")}</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">{t("brand.tagline")}</div>
             </div>
           </Link>
+          <LanguageSwitcher />
         </div>
       </header>
 

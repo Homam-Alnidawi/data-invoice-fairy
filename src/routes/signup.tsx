@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthShell, field, primaryBtn } from "@/components/auth-shell";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignupPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,11 +35,11 @@ function SignupPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) {
-      toast.error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      toast.error(t("toast.pwShort"));
       return;
     }
     if (password !== confirm) {
-      toast.error("كلمتا المرور غير متطابقتين");
+      toast.error(t("toast.pwMismatch"));
       return;
     }
     setBusy(true);
@@ -50,13 +52,13 @@ function SignupPage() {
     if (error) {
       toast.error(
         error.message.includes("already registered")
-          ? "هذا البريد مسجّل مسبقًا — سجّل الدخول"
+          ? t("toast.emailTaken")
           : error.message,
       );
       return;
     }
     if (data.session) {
-      toast.success("تم إنشاء الحساب");
+      toast.success(t("toast.accountCreated"));
       void navigate({ to: "/dashboard" });
       return;
     }
@@ -65,24 +67,27 @@ function SignupPage() {
 
   if (sent) {
     return (
-      <AuthShell title="تأكيد البريد الإلكتروني" subtitle="بقيت خطوة واحدة">
+      <AuthShell title={t("auth.confirm.title")} subtitle={t("auth.confirm.subtitle")}>
         <p className="text-[13px] leading-relaxed">
-          أرسلنا رسالة تأكيد إلى <span dir="ltr" className="font-bold">{email}</span>. افتح الرابط
-          داخلها لتفعيل حسابك، ثم سجّل الدخول.
+          {t("auth.confirm.body.1")}{" "}
+          <span dir="ltr" className="font-bold">
+            {email}
+          </span>{" "}
+          {t("auth.confirm.body.2")}
         </p>
         <Link to="/login" className="mt-4 inline-block font-bold text-brand">
-          الذهاب إلى تسجيل الدخول
+          {t("auth.goLogin")}
         </Link>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell title="إنشاء حساب" subtitle="ابدأ بقراءة فواتيرك خلال دقيقة">
+    <AuthShell title={t("auth.signup.title")} subtitle={t("auth.signup.subtitle")}>
       <form onSubmit={submit} className="space-y-3">
         <div>
           <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-            البريد الإلكتروني
+            {t("auth.email")}
           </label>
           <input
             type="email"
@@ -95,7 +100,7 @@ function SignupPage() {
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-            كلمة المرور
+            {t("auth.password")}
           </label>
           <input
             type="password"
@@ -108,7 +113,7 @@ function SignupPage() {
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-            تأكيد كلمة المرور
+            {t("auth.confirmPassword")}
           </label>
           <input
             type="password"
@@ -120,14 +125,14 @@ function SignupPage() {
           />
         </div>
         <button type="submit" disabled={busy} className={primaryBtn}>
-          {busy ? "جارٍ الإنشاء…" : "إنشاء حساب"}
+          {busy ? t("auth.creating") : t("auth.signup.title")}
         </button>
       </form>
 
       <div className="mt-4 border-t border-border pt-3 text-[12px] text-muted-foreground">
-        لديك حساب بالفعل؟{" "}
+        {t("auth.hasAccount")}{" "}
         <Link to="/login" className="font-bold text-brand">
-          تسجيل الدخول
+          {t("nav.login")}
         </Link>
       </div>
     </AuthShell>
