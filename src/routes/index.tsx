@@ -50,11 +50,12 @@ function Landing() {
               تسجيل الدخول
             </Link>
             <Link
-              to="/signup"
+              to="/dashboard"
               className="rounded-full bg-brand px-3 py-1.5 text-[12px] font-bold text-primary-foreground"
             >
-              إنشاء حساب
+              جرب مجانًا
             </Link>
+
           </div>
         </div>
       </header>
