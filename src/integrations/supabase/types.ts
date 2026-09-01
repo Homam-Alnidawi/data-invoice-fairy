@@ -92,6 +92,123 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage: {
+        Row: {
+          created_at: string
+          estimated_cost: number
+          failed_requests: number
+          id: string
+          input_tokens: number
+          output_tokens: number
+          period_end: string
+          period_start: string
+          request_count: number
+          successful_requests: number
+          total_tokens: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          estimated_cost?: number
+          failed_requests?: number
+          id?: string
+          input_tokens?: number
+          output_tokens?: number
+          period_end: string
+          period_start: string
+          request_count?: number
+          successful_requests?: number
+          total_tokens?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          estimated_cost?: number
+          failed_requests?: number
+          id?: string
+          input_tokens?: number
+          output_tokens?: number
+          period_end?: string
+          period_start?: string
+          request_count?: number
+          successful_requests?: number
+          total_tokens?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_usage_events: {
+        Row: {
+          created_at: string
+          error_code: string | null
+          estimated_cost: number
+          id: string
+          input_tokens: number
+          model: string
+          output_tokens: number
+          provider: string
+          status: string
+          total_tokens: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_code?: string | null
+          estimated_cost?: number
+          id?: string
+          input_tokens?: number
+          model: string
+          output_tokens?: number
+          provider: string
+          status?: string
+          total_tokens?: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_code?: string | null
+          estimated_cost?: number
+          id?: string
+          input_tokens?: number
+          model?: string
+          output_tokens?: number
+          provider?: string
+          status?: string
+          total_tokens?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      app_settings: {
+        Row: {
+          created_at: string
+          is_public: boolean
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          is_public?: boolean
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          is_public?: boolean
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       guest_usage: {
         Row: {
           created_at: string
@@ -526,6 +643,39 @@ export type Database = {
           },
         ]
       }
+      system_logs: {
+        Row: {
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          detail: string | null
+          event: string
+          id: string
+          level: string
+          metadata: Json
+        }
+        Insert: {
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          detail?: string | null
+          event: string
+          id?: string
+          level?: string
+          metadata?: Json
+        }
+        Update: {
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          detail?: string | null
+          event?: string
+          id?: string
+          level?: string
+          metadata?: Json
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -637,6 +787,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      consume_ai_quota: {
+        Args: { _daily_limit: number; _monthly_limit: number; _user_id: string }
+        Returns: Json
+      }
       consume_guest_quota: {
         Args: { _fingerprint: string; _limit?: number }
         Returns: Json
@@ -686,6 +840,19 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      record_ai_result: {
+        Args: {
+          _error_code?: string
+          _estimated_cost?: number
+          _input_tokens?: number
+          _model: string
+          _output_tokens?: number
+          _provider: string
+          _status: string
+          _user_id: string
+        }
+        Returns: undefined
       }
       refund_guest_quota: { Args: { _fingerprint: string }; Returns: undefined }
       refund_invoice_quota: { Args: { _user_id: string }; Returns: undefined }
