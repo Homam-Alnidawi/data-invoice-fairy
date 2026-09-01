@@ -115,11 +115,23 @@ const LOW = 0.6;
 const EPS = 0.05; // هامش خطأ نسبي بسيط
 
 export const extractInvoice = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ExtractedInvoice> => {
     const key = process.env["LOVABLE_API_KEY"];
     if (!key) throw new Error("مفتاح الذكاء الاصطناعي غير مهيأ");
+
+    // التحقق من الخطة والرصيد على الخادم قبل أي معالجة
+    const { consumeQuota } = await import("./usage.server");
+    const ticket = await consumeQuota();
+    if (!ticket.allowed) {
+      throw new QuotaError(ticket.kind, ticket.used, ticket.limit);
+    }
+    const refund = ticket.refund;
+    const fail = async (err: unknown) => {
+      await refund().catch(() => undefined);
+      throw err;
+    };
+
 
     const isPdf =
       data.mimeType === "application/pdf" || data.dataUrl.startsWith("data:application/pdf");
