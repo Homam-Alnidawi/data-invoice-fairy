@@ -224,14 +224,28 @@ function Index() {
   );
 
   // حذف ملف من قائمة المعالجة — بدون إعادة الرصيد المستهلك
-  const removeJob = useCallback((id: string) => {
-    setJobs((prev) => {
-      const target = prev.find((j) => j.id === id);
-      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
-      return prev.filter((j) => j.id !== id);
-    });
-    setReviewId((cur) => (cur === id ? null : cur));
-  }, []);
+  // وإن كانت الفاتورة محفوظة في قاعدة البيانات (Pro) تُحذف منها أيضًا حتى لا تعود بعد التحديث
+  const removeJob = useCallback(
+    (id: string) => {
+      setJobs((prev) => {
+        const target = prev.find((j) => j.id === id);
+        if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+        return prev.filter((j) => j.id !== id);
+      });
+      setReviewId((cur) => (cur === id ? null : cur));
+      if (user && isPro) {
+        void supabase
+          .from("invoices")
+          .delete()
+          .eq("id", id)
+          .eq("user_id", user.id)
+          .then(({ error }) => {
+            if (error) console.error(error);
+          });
+      }
+    },
+    [user, isPro],
+  );
 
   const signOut = useCallback(async () => {
 
