@@ -125,6 +125,24 @@ function Index() {
   }, []);
 
   // جلسة المستخدم (اختيارية — الزائر يستطيع التجربة بدون حساب)
+  const trackFn = useServerFn(trackActivity);
+  const amIAdminFn = useServerFn(amIAdmin);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    let alive = true;
+    void amIAdminFn()
+      .then((ok) => alive && setIsAdmin(ok))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [user, amIAdminFn]);
+
   useEffect(() => {
     let alive = true;
     void supabase.auth.getUser().then(({ data }) => {
