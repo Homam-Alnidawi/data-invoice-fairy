@@ -481,7 +481,45 @@ function Index() {
     patch(id, { data: next, status: "done" });
     setReviewId(null);
     toast.success("تم حفظ المراجعة");
+    if (isPro) {
+      void supabase
+        .from("invoices")
+        .update({
+          status: "done",
+          supplier: next.supplier,
+          invoice_number: next.invoiceNumber,
+          invoice_date: next.date,
+          currency: next.currency,
+          subtotal: next.subtotal,
+          discount: next.discount,
+          tax: next.tax,
+          total: next.total,
+          data: next as unknown as never,
+        })
+        .eq("id", id);
+    }
   };
+
+  // تجميع الفواتير المحفوظة حسب الشهر (Pro)
+  const monthlyGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      { key: string; jobs: Job[]; count: number; total: number; tax: number }
+    >();
+    for (const j of jobs) {
+      if (!j.data) continue;
+      const d = new Date(j.createdAt ?? Date.now());
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const g = map.get(key) ?? { key, jobs: [], count: 0, total: 0, tax: 0 };
+      g.jobs.push(j);
+      g.count += 1;
+      g.total += j.data.total ?? 0;
+      g.tax += j.data.tax ?? 0;
+      map.set(key, g);
+    }
+    return Array.from(map.values()).sort((a, b) => (a.key < b.key ? 1 : -1));
+  }, [jobs]);
+
 
 
 
