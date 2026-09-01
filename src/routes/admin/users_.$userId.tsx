@@ -349,7 +349,115 @@ function UserDetail() {
         )}
       </div>
 
+      {grantOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5">
+            <h3 className="text-base font-black">Grant Pro Access</h3>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              Plan: <b>Pro</b> — تفعيل يدوي بدون عملية دفع (admin_grant).
+            </p>
+
+            <div className="mt-4 text-[12px] font-bold">Duration</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {DURATIONS.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => {
+                    setUseCustom(false);
+                    setDays(d);
+                  }}
+                  className={`rounded-lg border px-3 py-1.5 text-[12px] font-bold ${
+                    !useCustom && days === d
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border"
+                  }`}
+                >
+                  {d} days
+                </button>
+              ))}
+              <button
+                onClick={() => setUseCustom(true)}
+                className={`rounded-lg border px-3 py-1.5 text-[12px] font-bold ${
+                  useCustom ? "border-foreground bg-foreground text-background" : "border-border"
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+            {useCustom && (
+              <input
+                type="number"
+                min={1}
+                max={3650}
+                value={customDays}
+                onChange={(e) => setCustomDays(e.target.value)}
+                placeholder="عدد الأيام"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              />
+            )}
+
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="السبب (اختياري)"
+              className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setGrantOpen(false)}
+                className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => grant.mutate()}
+                disabled={grant.isPending || (useCustom && !Number(customDays))}
+                className="flex-1 rounded-lg bg-foreground px-3 py-2 text-sm font-bold text-background disabled:opacity-60"
+              >
+                {grant.isPending ? "…" : "Activate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {revokeOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5">
+            <h3 className="text-base font-black text-destructive">Revoke Pro access?</h3>
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              Are you sure you want to revoke this user’s Pro access? سيعود المستخدم إلى الخطة
+              المجانية. لن تُحذف أي بيانات دفع، وإلغاء الاشتراك المدفوع لدى المزوّد يتم من لوحة
+              المزوّد.
+            </p>
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="السبب (اختياري)"
+              className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setRevokeOpen(false)}
+                className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => revoke.mutate()}
+                disabled={revoke.isPending}
+                className="flex-1 rounded-lg bg-destructive px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {revoke.isPending ? "…" : "Revoke"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmDelete && (
+
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5">
             <h3 className="text-base font-black text-destructive">حذف المستخدم نهائيًا؟</h3>
