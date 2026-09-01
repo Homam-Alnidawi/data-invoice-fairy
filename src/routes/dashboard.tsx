@@ -1114,7 +1114,7 @@ function ReviewDialog({
       <span className="text-[10px] text-muted-foreground">
         {label}
         {confidence !== undefined && low(confidence) && (
-          <span className="mr-1 rounded bg-amber/25 px-1 font-bold">ثقة منخفضة</span>
+          <span className="mr-1 rounded bg-amber/25 px-1 font-bold">{t("rev.lowConf")}</span>
         )}
       </span>
       <input
@@ -1130,7 +1130,7 @@ function ReviewDialog({
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-background p-4 sm:rounded-2xl">
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <div className="text-[14px] font-extrabold">مراجعة يدوية</div>
+            <div className="text-[14px] font-extrabold">{t("rev.title")}</div>
             <div className="truncate text-[10px] text-muted-foreground">{job.fileName}</div>
           </div>
           <button
@@ -1138,7 +1138,7 @@ function ReviewDialog({
             onClick={onClose}
             className="rounded-lg bg-surface px-2.5 py-1.5 text-[12px] font-bold"
           >
-            إغلاق
+            {t("rev.close")}
           </button>
         </div>
 
@@ -1167,37 +1167,37 @@ function ReviewDialog({
         )}
 
         <div className="grid grid-cols-2 gap-2.5">
-          {field("المورد", draft.supplier ?? "", (v) => set("supplier", v || null), draft.confidence.supplier)}
+          {field(t("rev.supplier"), draft.supplier ?? "", (v) => set("supplier", v || null), draft.confidence.supplier)}
           {field(
-            "رقم الفاتورة",
+            t("rev.number"),
             draft.invoiceNumber ?? "",
             (v) => set("invoiceNumber", v || null),
             draft.confidence.invoiceNumber,
           )}
-          {field("التاريخ", draft.date ?? "", (v) => set("date", v || null), draft.confidence.date)}
-          {field("العملة", draft.currency ?? "", (v) => set("currency", v || null))}
+          {field(t("rev.date"), draft.date ?? "", (v) => set("date", v || null), draft.confidence.date)}
+          {field(t("rev.currency"), draft.currency ?? "", (v) => set("currency", v || null))}
           {field(
-            "الصافي",
+            t("rev.net"),
             String(draft.subtotal),
             (v) => set("subtotal", Number(v) || 0),
             draft.confidence.subtotal,
           )}
-          {field("الخصم", String(draft.discount), (v) => set("discount", Number(v) || 0))}
+          {field(t("rev.discount"), String(draft.discount), (v) => set("discount", Number(v) || 0))}
           {field(
-            "الضريبة KDV",
+            t("rev.tax"),
             String(draft.tax),
             (v) => set("tax", Number(v) || 0),
             draft.confidence.tax,
           )}
           {field(
-            "الإجمالي",
+            t("rev.total"),
             String(draft.total),
             (v) => set("total", Number(v) || 0),
             draft.confidence.total,
           )}
         </div>
 
-        <div className="mt-4 text-[11px] font-semibold text-muted-foreground">البنود</div>
+        <div className="mt-4 text-[11px] font-semibold text-muted-foreground">{t("rev.items")}</div>
         <div className="mt-1.5 space-y-2">
           {draft.items.map((it, i) => (
             <div key={i} className="grid grid-cols-4 gap-1.5 rounded-xl bg-surface p-2">
@@ -1205,37 +1205,37 @@ function ReviewDialog({
                 value={it.name}
                 onChange={(e) => setItem(i, { name: e.target.value })}
                 className="col-span-4 rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
-                placeholder="المنتج"
+                placeholder={t("rev.product")}
               />
               <input
                 value={String(it.qty)}
                 onChange={(e) => setItem(i, { qty: Number(e.target.value) || 0 })}
                 className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
-                placeholder="الكمية"
+                placeholder={t("rev.qty")}
               />
               <input
                 value={String(it.unitPrice)}
                 onChange={(e) => setItem(i, { unitPrice: Number(e.target.value) || 0 })}
                 className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
-                placeholder="السعر"
+                placeholder={t("rev.price")}
               />
               <input
                 value={String(it.discount)}
                 onChange={(e) => setItem(i, { discount: Number(e.target.value) || 0 })}
                 className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
-                placeholder="الخصم"
+                placeholder={t("rev.discount")}
               />
               <input
                 value={String(it.total)}
                 onChange={(e) => setItem(i, { total: Number(e.target.value) || 0 })}
                 className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px]"
-                placeholder="الإجمالي"
+                placeholder={t("rev.total")}
               />
             </div>
           ))}
           {draft.items.length === 0 && (
             <div className="rounded-xl bg-surface p-3 text-center text-[11px] text-muted-foreground">
-              لا توجد بنود مقروءة
+              {t("rev.noItems")}
             </div>
           )}
         </div>
@@ -1247,7 +1247,7 @@ function ReviewDialog({
           }
           className="mt-4 w-full rounded-xl bg-brand py-3 text-[13px] font-bold text-primary-foreground"
         >
-          حفظ ومتابعة
+          {t("rev.save")}
         </button>
       </div>
     </div>
