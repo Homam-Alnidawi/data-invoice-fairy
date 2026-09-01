@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { getUsageState, type UsageState } from "@/lib/usage.functions";
+import { listPublicPlans, type Plan } from "@/lib/subscriptions.functions";
 
 export const Route = createFileRoute("/pricing")({
   ssr: false,
@@ -37,15 +38,25 @@ const PRO_FEATURES = [
 
 function Pricing() {
   const usageFn = useServerFn(getUsageState);
+  const plansFn = useServerFn(listPublicPlans);
   const [usage, setUsage] = useState<UsageState | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
     void usageFn({})
       .then(setUsage)
       .catch(() => undefined);
-  }, [usageFn]);
+    void plansFn()
+      .then(setPlans)
+      .catch(() => undefined);
+  }, [usageFn, plansFn]);
 
   const isPro = usage?.kind === "pro";
+  const freePlan = plans.find((p) => p.code === "free");
+  const proPlan = plans.find((p) => p.code === "pro");
+  const money = (p?: Plan) =>
+    p ? `$${(p.priceCents / 100).toLocaleString("en-US")}` : "—";
+  const proFeatures = proPlan?.features.length ? proPlan.features : PRO_FEATURES;
 
   const subscribe = () => {
     toast.info("الدفع عبر Stripe قيد التفعيل — سيتم تحويلك إلى صفحة الدفع فور تفعيله.");
@@ -96,7 +107,7 @@ function Pricing() {
             <div className="text-[13px] font-extrabold">Free</div>
             <div className="mt-1 text-[20px] font-extrabold">مجانًا</div>
             <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-              <li>• 5 فواتير شهريًا</li>
+              <li>• {freePlan?.invoiceLimit ?? 5} فواتير شهريًا</li>
               <li>• يتجدّد الرصيد كل شهر</li>
               <li>• بدون حفظ دائم للفواتير</li>
             </ul>
@@ -104,10 +115,10 @@ function Pricing() {
           <div className="rounded-2xl bg-ink p-4 text-ink-foreground ring-1 ring-black/5">
             <div className="text-[13px] font-extrabold">Pro</div>
             <div className="mt-1 text-[20px] font-extrabold">
-              $25 <span className="text-[12px] font-bold opacity-70">/ شهر</span>
+              {money(proPlan)} <span className="text-[12px] font-bold opacity-70">/ شهر</span>
             </div>
             <ul className="mt-2 space-y-1 text-[11px] opacity-80">
-              <li>• 1000 فاتورة شهريًا</li>
+              <li>• {proPlan?.invoiceLimit ?? 1000} فاتورة شهريًا</li>
               <li>• حفظ وأرشفة شهرية</li>
               <li>• كل المزايا</li>
             </ul>
@@ -118,14 +129,14 @@ function Pricing() {
           <div className="bg-ink p-5 text-ink-foreground">
             <div className="text-[11px] opacity-70">الخطة الاحترافية</div>
             <div className="mt-1 text-[32px] leading-none font-extrabold tracking-tight">
-              $25 <span className="text-[15px] font-bold opacity-70">/ شهر</span>
+              {money(proPlan)} <span className="text-[15px] font-bold opacity-70">/ شهر</span>
             </div>
             <div className="mt-1.5 text-[11px] opacity-70">
-              1000 فاتورة شهريًا · حفظ وأرشفة · إلغاء في أي وقت
+              {proPlan?.invoiceLimit ?? 1000} فاتورة شهريًا · حفظ وأرشفة · إلغاء في أي وقت
             </div>
           </div>
           <ul className="space-y-2 p-4">
-            {PRO_FEATURES.map((f) => (
+            {proFeatures.map((f) => (
               <li key={f} className="flex items-start gap-2 text-[13px]">
                 <span className="mt-0.5 text-brand">✓</span>
                 <span>{f}</span>
@@ -143,7 +154,7 @@ function Pricing() {
                 onClick={subscribe}
                 className="w-full rounded-xl bg-brand py-3.5 text-[14px] font-extrabold text-primary-foreground"
               >
-                اشترك الآن — $25/شهر
+                اشترك الآن — {money(proPlan)}/شهر
               </button>
             )}
             {usage && usage.kind === "guest" && (
@@ -152,7 +163,7 @@ function Pricing() {
                 <Link to="/signup" className="font-bold text-brand">
                   أنشئ حسابًا مجانيًا
                 </Link>{" "}
-                واحصل على 5 فواتير شهريًا.
+                واحصل على {freePlan?.invoiceLimit ?? 5} فواتير شهريًا.
               </p>
             )}
           </div>
