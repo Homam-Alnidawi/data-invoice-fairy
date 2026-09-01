@@ -1,12 +1,30 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const Input = z.object({
   fileName: z.string(),
   mimeType: z.string(),
   dataUrl: z.string(),
 });
+
+export class QuotaError extends Error {
+  kind: "guest" | "free" | "pro";
+  used: number;
+  limit: number;
+  constructor(kind: "guest" | "free" | "pro", used: number, limit: number) {
+    super(`QUOTA_EXCEEDED:${kind}:${used}:${limit}`);
+    this.kind = kind;
+    this.used = used;
+    this.limit = limit;
+  }
+}
+
+export function parseQuotaError(message: string) {
+  const m = message.match(/QUOTA_EXCEEDED:(guest|free|pro):(\d+):(\d+)/);
+  if (!m) return null;
+  return { kind: m[1] as "guest" | "free" | "pro", used: Number(m[2]), limit: Number(m[3]) };
+}
+
 
 export type InvoiceItem = {
   name: string;
