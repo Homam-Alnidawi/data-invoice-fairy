@@ -117,8 +117,8 @@ const EPS = 0.05; // هامش خطأ نسبي بسيط
 export const extractInvoice = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ExtractedInvoice> => {
-    const key = process.env["LOVABLE_API_KEY"];
-    if (!key) throw new Error("مفتاح الذكاء الاصطناعي غير مهيأ");
+    // مزوّد الذكاء الاصطناعي يُدار من إعدادات الإدارة، والمفتاح يبقى على الخادم فقط
+    const { runAi } = await import("./ai.server");
 
     // التحقق من الخطة والرصيد على الخادم قبل أي معالجة
     const { consumeQuota } = await import("./usage.server");
@@ -132,55 +132,22 @@ export const extractInvoice = createServerFn({ method: "POST" })
       throw err;
     };
 
-
     const isPdf =
       data.mimeType === "application/pdf" || data.dataUrl.startsWith("data:application/pdf");
 
-    const mediaBlock = isPdf
-      ? {
-          type: "file" as const,
-          file: { filename: data.fileName, file_data: data.dataUrl },
-        }
-      : { type: "image_url" as const, image_url: { url: data.dataUrl } };
-
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": key,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3.7-flash",
-        messages: [
-          { role: "system", content: SYSTEM },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `اقرأ هذه الفاتورة بعناية (قد تحتوي كتابة يدوية): ${data.fileName}`,
-              },
-              mediaBlock,
-            ],
-          },
-        ],
-      }),
-    }).catch(async (e: unknown) => {
-      await fail(new Error("تعذّر الاتصال بخدمة الذكاء الاصطناعي"));
-      throw e;
-    });
-
-    if (!res.ok) {
-      const body = await res.text();
-      if (res.status === 429) await fail(new Error("تم تجاوز حد الطلبات، حاول بعد قليل"));
-      if (res.status === 402) await fail(new Error("رصيد الذكاء الاصطناعي غير كافٍ"));
-      await fail(new Error(`تعذّرت قراءة الفاتورة (${res.status}) ${body.slice(0, 160)}`));
+    let text = "";
+    try {
+      text = await runAi({
+        system: SYSTEM,
+        userText: `اقرأ هذه الفاتورة بعناية (قد تحتوي كتابة يدوية): ${data.fileName}`,
+        media: isPdf
+          ? { kind: "file", fileName: data.fileName, dataUrl: data.dataUrl }
+          : { kind: "image", dataUrl: data.dataUrl },
+      });
+    } catch (e) {
+      await fail(e instanceof Error ? e : new Error("تعذّرت قراءة الفاتورة"));
     }
 
-    const json = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const text = json.choices?.[0]?.message?.content ?? "";
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) await fail(new Error("لم نتمكن من تفسير محتوى الفاتورة"));
 
