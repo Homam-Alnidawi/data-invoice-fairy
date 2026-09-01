@@ -888,6 +888,43 @@ function Index() {
           onSave={(next) => saveReview(reviewJob.id, next)}
         />
       )}
+
+      {upgradeOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-md rounded-t-2xl bg-background p-5 text-center sm:rounded-2xl">
+            <div className="text-[18px] font-extrabold">انتهى رصيدك المجاني</div>
+            <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+              {usage?.kind === "guest"
+                ? "لقد استخدمت الفاتورتين المجانيتين. أنشئ حسابًا مجانيًا للحصول على 5 فواتير شهريًا، أو ارتقِ إلى Pro لتحليل 1000 فاتورة شهريًا مع حفظ وأرشفة."
+                : "لقد استخدمت فواتيرك المجانية لهذا الشهر. ارتقِ إلى Pro لتحليل 1000 فاتورة شهريًا مع حفظ الفواتير وأرشفتها."}
+            </p>
+            <div className="mt-4 grid gap-2">
+              <Link
+                to="/pricing"
+                className="rounded-xl bg-brand py-3 text-[14px] font-extrabold text-primary-foreground"
+              >
+                الترقية إلى Pro — $25/شهر
+              </Link>
+              {usage?.kind === "guest" && (
+                <Link
+                  to="/signup"
+                  className="rounded-xl border border-border py-3 text-[13px] font-extrabold"
+                >
+                  إنشاء حساب مجاني (5 فواتير شهريًا)
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setUpgradeOpen(false)}
+                className="py-2 text-[12px] font-bold text-muted-foreground"
+              >
+                لاحقًا
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
 
   );
