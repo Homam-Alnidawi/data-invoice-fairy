@@ -17,6 +17,7 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminStatisticsRouteImport } from './routes/admin/statistics'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin/users_.$userId'
 
@@ -60,6 +61,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminStatisticsRoute = AdminStatisticsRouteImport.update({
+  id: '/statistics',
+  path: '/statistics',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/admin/statistics': typeof AdminStatisticsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/admin/statistics': typeof AdminStatisticsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin': typeof AdminIndexRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/admin/statistics': typeof AdminStatisticsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/users_/$userId': typeof AdminUsersUserIdRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/reset-password'
     | '/signup'
+    | '/admin/statistics'
     | '/admin/users'
     | '/admin/'
     | '/admin/users/$userId'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/reset-password'
     | '/signup'
+    | '/admin/statistics'
     | '/admin/users'
     | '/admin'
     | '/admin/users/$userId'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/reset-password'
     | '/signup'
+    | '/admin/statistics'
     | '/admin/users'
     | '/admin/'
     | '/admin/users_/$userId'
@@ -213,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/statistics': {
+      id: '/admin/statistics'
+      path: '/statistics'
+      fullPath: '/admin/statistics'
+      preLoaderRoute: typeof AdminStatisticsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/users'
@@ -231,12 +250,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteRouteChildren {
+  AdminStatisticsRoute: typeof AdminStatisticsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminStatisticsRoute: AdminStatisticsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminUsersUserIdRoute: AdminUsersUserIdRoute,
