@@ -834,7 +834,6 @@ export type Database = {
         }
       }
       expire_due_subscriptions: { Args: never; Returns: number }
-      get_public_settings: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
