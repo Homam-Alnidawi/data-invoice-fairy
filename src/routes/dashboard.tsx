@@ -604,6 +604,14 @@ function Index() {
                         {user.email}
                       </div>
                     </div>
+                    {isAdmin && (
+                      <Link
+                        to="/admin"
+                        className="block border-b border-border px-3 py-2 text-[12px] font-bold text-brand hover:bg-brand-soft/40"
+                      >
+                        لوحة الإدارة
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={() => void signOut()}
