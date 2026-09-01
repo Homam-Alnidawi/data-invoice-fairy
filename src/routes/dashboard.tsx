@@ -235,6 +235,7 @@ function Index() {
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
       let files = Array.from(fileList);
+      void trackFn({ data: { action: "file_upload", count: files.length } }).catch(() => undefined);
 
       const remaining = usage ? Math.max(0, usage.limit - usage.used) : files.length;
       if (usage && remaining === 0) {
@@ -433,6 +434,7 @@ function Index() {
     if (!hasData()) return;
     download(csvBlob(INVOICES_HEAD, buildInvoiceRows()), "الفواتير.csv");
     setTimeout(() => download(csvBlob(ITEMS_HEAD, buildItemRows()), "البنود.csv"), 600);
+    void trackFn({ data: { action: "csv_export" } }).catch(() => undefined);
     toast.success("تم تصدير ملفين: الفواتير + البنود");
   };
 
@@ -451,6 +453,7 @@ function Index() {
 
   const exportExcel = async () => {
     if (!hasData()) return;
+    void trackFn({ data: { action: "excel_export" } }).catch(() => undefined);
     const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
 
@@ -476,6 +479,7 @@ function Index() {
 
   const exportPdf = () => {
     if (!hasData()) return;
+    void trackFn({ data: { action: "pdf_export" } }).catch(() => undefined);
     const win = window.open("", "_blank");
     if (!win) {
       toast.error("امنع حظر النوافذ المنبثقة لتصدير PDF");
