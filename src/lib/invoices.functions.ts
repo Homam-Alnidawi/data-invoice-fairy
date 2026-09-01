@@ -274,6 +274,8 @@ export const extractInvoice = createServerFn({ method: "POST" })
       : warnings.length > 0
         ? "review"
         : "completed";
+    const { recordProcessed } = await import("./usage.server");
+    await recordProcessed(1).catch(() => undefined);
 
     return {
       supplier,
@@ -292,11 +294,7 @@ export const extractInvoice = createServerFn({ method: "POST" })
       warnings,
       status,
       needsReview: status !== "completed",
-      _recorded: await (async () => {
-        const { recordProcessed } = await import("./usage.server");
-        await recordProcessed(1).catch(() => undefined);
-        return true;
-      })(),
+
 
     };
   });
