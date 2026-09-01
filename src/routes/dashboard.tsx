@@ -10,6 +10,8 @@ import {
   type InvoiceItem,
 } from "@/lib/invoices.functions";
 import { getUsageState, type UsageState } from "@/lib/usage.functions";
+import { trackActivity } from "@/lib/activity.functions";
+import { amIAdmin } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
