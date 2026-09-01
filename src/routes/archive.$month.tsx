@@ -247,12 +247,15 @@ function ArchiveMonthPage() {
                     <div className="min-w-0">
                       <div className="truncate text-[13px] font-extrabold">{g.supplier}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {g.count} فاتورة · ضريبة {nf.format(g.tax)}
+                        {g.count} فاتورة · ضريبة:{" "}
+                        <span dir="ltr" className="tabular-nums">
+                          {nf.format(g.tax)}
+                        </span>
                       </div>
                     </div>
-                    <div className="text-[14px] font-extrabold text-brand tabular-nums">
+                    <div dir="ltr" className="shrink-0 text-[14px] font-extrabold text-brand tabular-nums">
                       {nf.format(g.total)}
-                      <span className="mr-1 text-[10px] text-muted-foreground">
+                      <span className="ml-1 text-[10px] font-semibold text-muted-foreground">
                         {currencySymbol(g.currency)}
                       </span>
                     </div>
