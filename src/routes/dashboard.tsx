@@ -223,7 +223,18 @@ function Index() {
     [user, isPro],
   );
 
+  // حذف ملف من قائمة المعالجة — بدون إعادة الرصيد المستهلك
+  const removeJob = useCallback((id: string) => {
+    setJobs((prev) => {
+      const target = prev.find((j) => j.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((j) => j.id !== id);
+    });
+    setReviewId((cur) => (cur === id ? null : cur));
+  }, []);
+
   const signOut = useCallback(async () => {
+
     void trackFn({ data: { action: "logout" } }).catch(() => undefined);
     await supabase.auth.signOut();
     setJobs([]);
@@ -757,6 +768,16 @@ function Index() {
                         style={{ width: `${job.progress}%` }}
                       />
                     </div>
+                    <button
+                      type="button"
+                      aria-label={`حذف ${job.fileName}`}
+                      title="حذف من القائمة (لا يُعاد الرصيد المستهلك)"
+                      onClick={() => removeJob(job.id)}
+                      className="shrink-0 rounded-lg px-1.5 py-1 text-[13px] font-black leading-none text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      ✕
+                    </button>
+
                   </li>
                 ))}
               </ul>
