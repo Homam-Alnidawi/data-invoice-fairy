@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { amIAdmin } from "@/lib/admin.functions";
-import { BarChart3, CreditCard, LayoutDashboard, LogOut, Menu, Settings, Users } from "lucide-react";
+import { BarChart3, CreditCard, Home, LayoutDashboard, LogOut, Menu, Settings, Users } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -99,6 +99,14 @@ function AdminLayout() {
           </Link>
         );
       })}
+      <div className="my-2 border-t border-border" />
+      <Link
+        to="/"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted"
+      >
+        <Home className="size-4" />
+        الصفحة الرئيسية
+      </Link>
       <button
         onClick={() => void signOut()}
         className="mt-auto flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10"
