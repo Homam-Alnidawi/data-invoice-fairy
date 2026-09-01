@@ -234,67 +234,47 @@ function ArchiveMonthPage() {
             </div>
 
             <div className="mb-2 text-[11px] font-semibold text-brand">
-              {groups.length} مورّد في هذا الشهر
+              {rows.length} فاتورة · {groups.length} مورّد
             </div>
 
-            <div className="space-y-2">
-              {groups.map((g) => (
+            <div className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
+              <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 border-b border-border px-3 py-2 text-[10px] font-semibold text-muted-foreground">
+                <div className="text-right">المورد</div>
+                <div className="text-center">التاريخ</div>
+                <div className="text-left">الإجمالي</div>
+                <div className="w-8"></div>
+              </div>
+              {rows.map((r) => (
                 <div
-                  key={g.supplier}
-                  className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5"
+                  key={r.id}
+                  className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 border-b border-border px-3 py-2.5 text-right last:border-0"
                 >
-                  <div className="flex items-center justify-between gap-2 p-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-[13px] font-extrabold">{g.supplier}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {g.count} فاتورة · ضريبة:{" "}
-                        <span dir="ltr" className="tabular-nums">
-                          {nf.format(g.tax)}
-                        </span>
-                      </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-[12px] font-bold">
+                      {r.supplier?.trim() || "غير معروف"}
                     </div>
-                    <div dir="ltr" className="shrink-0 text-[14px] font-extrabold text-brand tabular-nums">
-                      {nf.format(g.total)}
-                      <span className="ml-1 text-[10px] font-semibold text-muted-foreground">
-                        {currencySymbol(g.currency)}
-                      </span>
+                    <div className="truncate text-[10px] text-muted-foreground">
+                      {r.invoice_number?.trim() || r.file_name}
                     </div>
                   </div>
-                  <div className="border-t border-border">
-                    {g.invoices.map((r) => (
-                      <div
-                        key={r.id}
-                        className="flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2 text-right last:border-0"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-[12px] font-bold">
-                            {r.invoice_number?.trim() || r.file_name}
-                          </div>
-                          <div dir="ltr" className="mt-0.5 text-left text-[10px] text-muted-foreground tabular-nums">
-                            {r.invoice_date?.trim() || "بدون تاريخ"}
-                          </div>
-                        </div>
-                        <div
-                          dir="ltr"
-                          className="shrink-0 text-[13px] font-extrabold text-brand tabular-nums"
-                        >
-                          {nf.format(Number(r.total) || 0)}
-                          <span className="ml-1 text-[10px] font-semibold text-muted-foreground">
-                            {currencySymbol(r.currency)}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          aria-label={`حذف فاتورة ${r.file_name}`}
-                          title="حذف من الأرشيف (لا يُعاد الرصيد المستهلك)"
-                          onClick={() => setDeleteTarget(r)}
-                          className="shrink-0 rounded-lg px-1.5 py-1 text-[13px] font-black leading-none text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
+                  <div dir="ltr" className="text-left text-[11px] tabular-nums text-muted-foreground">
+                    {r.invoice_date?.trim() || "—"}
                   </div>
+                  <div dir="ltr" className="text-left text-[13px] font-extrabold text-brand tabular-nums">
+                    {nf.format(Number(r.total) || 0)}
+                    <span className="mr-1 text-[10px] font-semibold text-muted-foreground">
+                      {currencySymbol(r.currency)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`حذف فاتورة ${r.file_name}`}
+                    title="حذف من الأرشيف (لا يُعاد الرصيد المستهلك)"
+                    onClick={() => setDeleteTarget(r)}
+                    className="grid w-8 place-items-center rounded-lg py-1 text-[13px] font-black leading-none text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
