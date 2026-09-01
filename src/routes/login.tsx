@@ -28,13 +28,17 @@ function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) {
+      const banned = /banned|disabled/i.test(error.message);
       toast.error(
-        error.message.includes("Invalid login")
-          ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
-          : error.message,
+        banned
+          ? "تم تعطيل هذا الحساب. تواصل مع الدعم."
+          : error.message.includes("Invalid login")
+            ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+            : error.message,
       );
       return;
     }
+    void trackActivityFn({ data: { action: "login" } }).catch(() => undefined);
     toast.success("تم تسجيل الدخول");
     void navigate({ to: "/dashboard" });
   };
