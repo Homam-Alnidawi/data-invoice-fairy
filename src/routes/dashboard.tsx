@@ -757,6 +757,16 @@ function Index() {
                         style={{ width: `${job.progress}%` }}
                       />
                     </div>
+                    <button
+                      type="button"
+                      aria-label={`حذف ${job.fileName}`}
+                      title="حذف من القائمة (لا يُعاد الرصيد المستهلك)"
+                      onClick={() => removeJob(job.id)}
+                      className="shrink-0 rounded-lg px-1.5 py-1 text-[13px] font-black leading-none text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      ✕
+                    </button>
+
                   </li>
                 ))}
               </ul>
