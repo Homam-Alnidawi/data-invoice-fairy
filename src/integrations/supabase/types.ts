@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          detail: string | null
+          id: string
+          metadata: Json
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          metadata?: Json
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          detail?: string | null
+          id?: string
+          metadata?: Json
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      admin_audit_logs: {
+        Row: {
+          action: string
+          admin_email: string | null
+          admin_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          target_email: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_email?: string | null
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          target_email?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_email?: string | null
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          target_email?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       guest_usage: {
         Row: {
           created_at: string
@@ -102,9 +162,13 @@ export type Database = {
           current_period_start: string | null
           email: string | null
           id: string
+          last_activity: string | null
+          last_login_at: string | null
           monthly_invoice_limit: number
           monthly_invoice_usage: number
+          name: string | null
           plan: string
+          status: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_status: string
@@ -117,9 +181,13 @@ export type Database = {
           current_period_start?: string | null
           email?: string | null
           id: string
+          last_activity?: string | null
+          last_login_at?: string | null
           monthly_invoice_limit?: number
           monthly_invoice_usage?: number
+          name?: string | null
           plan?: string
+          status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
@@ -132,9 +200,13 @@ export type Database = {
           current_period_start?: string | null
           email?: string | null
           id?: string
+          last_activity?: string | null
+          last_login_at?: string | null
           monthly_invoice_limit?: number
           monthly_invoice_usage?: number
+          name?: string | null
           plan?: string
+          status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
@@ -143,11 +215,83 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_usage_stats: {
+        Row: {
+          created_at: string
+          excel_exports: number
+          invoices_processed: number
+          last_activity: string | null
+          pdf_exports: number
+          processing_operations: number
+          processing_requests: number
+          temp_uploads: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          excel_exports?: number
+          invoices_processed?: number
+          last_activity?: string | null
+          pdf_exports?: number
+          processing_operations?: number
+          processing_requests?: number
+          temp_uploads?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          excel_exports?: number
+          invoices_processed?: number
+          last_activity?: string | null
+          pdf_exports?: number
+          processing_operations?: number
+          processing_requests?: number
+          temp_uploads?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      bump_usage: {
+        Args: {
+          _excel_exports?: number
+          _invoices_processed?: number
+          _pdf_exports?: number
+          _processing_operations?: number
+          _processing_requests?: number
+          _temp_uploads?: number
+          _user_id: string
+        }
+        Returns: undefined
+      }
       consume_guest_quota: {
         Args: { _fingerprint: string; _limit?: number }
         Returns: Json
@@ -164,9 +308,13 @@ export type Database = {
           current_period_start: string | null
           email: string | null
           id: string
+          last_activity: string | null
+          last_login_at: string | null
           monthly_invoice_limit: number
           monthly_invoice_usage: number
+          name: string | null
           plan: string
+          status: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_status: string
@@ -180,11 +328,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       refund_guest_quota: { Args: { _fingerprint: string }; Returns: undefined }
       refund_invoice_quota: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -311,6 +466,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
