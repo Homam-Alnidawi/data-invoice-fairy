@@ -953,13 +953,21 @@ function ReviewDialog({
           </button>
         </div>
 
-        {job.previewUrl && (
-          <img
-            src={job.previewUrl}
-            alt={`صورة الفاتورة ${job.fileName}`}
-            className="mb-3 max-h-64 w-full rounded-xl object-contain ring-1 ring-black/5"
-          />
-        )}
+        {job.previewUrl &&
+          (job.mimeType === "application/pdf" ? (
+            <iframe
+              src={job.previewUrl}
+              title={`معاينة الفاتورة ${job.fileName}`}
+              className="mb-3 h-64 w-full rounded-xl ring-1 ring-black/5"
+            />
+          ) : (
+            <img
+              src={job.previewUrl}
+              alt={`صورة الفاتورة ${job.fileName}`}
+              className="mb-3 max-h-64 w-full rounded-xl object-contain ring-1 ring-black/5"
+            />
+          ))}
+
 
         {draft.warnings.length > 0 && (
           <ul className="mb-3 space-y-1 rounded-xl bg-amber/15 p-2.5 text-[11px]">
