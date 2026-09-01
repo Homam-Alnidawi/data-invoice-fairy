@@ -85,11 +85,11 @@ function AdminLayout() {
         <div className="text-[11px] text-muted-foreground">لوحة إدارة النظام</div>
       </div>
       <Link
-        to="/"
+        to="/dashboard"
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted"
       >
         <Home className="size-4" />
-        الصفحة الرئيسية
+        لوحة التحميل
       </Link>
       <div className="my-2 border-t border-border" />
       {NAV.map((n) => {
