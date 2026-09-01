@@ -1,0 +1,400 @@
+/**
+ * Server-only: سجلّ بوابات الدفع + تخزين آمن لبيانات الاعتماد.
+ *
+ * قواعد الأمان:
+ *  - الأسرار تُشفَّر (AES-256-GCM) بمفتاح خادم (PAYMENT_SECRETS_KEY) وتُخزَّن في
+ *    جدول مقفل تمامًا (لا صلاحيات لأي دور عدا service_role، ولا سياسات RLS).
+ *  - لا تُعاد أي قيمة سرّية إلى الواجهة إطلاقًا — فقط "configured: true/false".
+ *  - لا تُسجَّل أي قيمة سرّية في السجلات أو رسائل الأخطاء.
+ */
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/* ------------------------------------------------------------------ */
+/* Registry — إضافة بوابة جديدة = إضافة عنصر هنا + معالج webhook       */
+/* ------------------------------------------------------------------ */
+
+export type ProviderField = {
+  key: string;
+  label: string;
+  /** سرّي => يُخزَّن مشفّرًا ولا يُعاد أبدًا. غير سرّي => يُخزَّن في config. */
+  secret: boolean;
+  required: boolean;
+  placeholder?: string;
+  hint?: string;
+};
+
+export type ProviderEnv = { value: string; label: string };
+
+export type ProviderDef = {
+  id: string;
+  displayName: string;
+  doc: string;
+  environments: ProviderEnv[];
+  defaultCurrency: string;
+  /** الحقول تُخزَّن لكل بيئة على حدة (test/live لا يختلطان). */
+  fields: ProviderField[];
+  /** هل يوفّر المزوّد طريقة فعلية لاختبار بيانات الاعتماد؟ */
+  supportsConnectionTest: boolean;
+  /** آلية الإشعار الرسمية. */
+  callbackKind: "webhook" | "callback";
+  webhookPath: string;
+  /** هل يدعم اشتراكات متكرّرة تلقائيًا؟ */
+  recurring: boolean;
+  notes?: string;
+};
+
+export const PROVIDERS: ProviderDef[] = [
+  {
+    id: "paytr",
+    displayName: "PayTR",
+    doc: "https://dev.paytr.com",
+    environments: [
+      { value: "test", label: "Test" },
+      { value: "live", label: "Live" },
+    ],
+    defaultCurrency: "TL",
+    fields: [
+      { key: "merchant_id", label: "Merchant ID", secret: true, required: true },
+      { key: "merchant_key", label: "Merchant Key", secret: true, required: true },
+      { key: "merchant_salt", label: "Merchant Salt", secret: true, required: true },
+    ],
+    supportsConnectionTest: true,
+    callbackKind: "callback",
+    webhookPath: "/api/public/webhooks/payments/paytr",
+    recurring: false,
+    notes: "PayTR تُرسل نتيجة الدفع إلى Callback URL موقّعة بـ merchant_key/merchant_salt.",
+  },
+  {
+    id: "paddle",
+    displayName: "Paddle Billing",
+    doc: "https://developer.paddle.com",
+    environments: [
+      { value: "sandbox", label: "Sandbox" },
+      { value: "production", label: "Production" },
+    ],
+    defaultCurrency: "USD",
+    fields: [
+      {
+        key: "client_token",
+        label: "Client-side Token (عام)",
+        secret: false,
+        required: true,
+        placeholder: "live_... / test_...",
+        hint: "قيمة عامة مسموح استخدامها في الواجهة رسميًا.",
+      },
+      {
+        key: "price_id",
+        label: "Price ID لخطة Pro (عام)",
+        secret: false,
+        required: true,
+        placeholder: "pri_...",
+      },
+      { key: "api_key", label: "API Key (سرّي)", secret: true, required: true },
+      {
+        key: "webhook_secret",
+        label: "Webhook Signing Secret (سرّي)",
+        secret: true,
+        required: true,
+        placeholder: "pdl_ntfset_...",
+      },
+    ],
+    supportsConnectionTest: true,
+    callbackKind: "webhook",
+    webhookPath: "/api/public/webhooks/payments/paddle",
+    recurring: true,
+  },
+  {
+    id: "zaincash",
+    displayName: "Zain Cash",
+    doc: "https://docs.zaincash.iq",
+    environments: [
+      { value: "test", label: "Test" },
+      { value: "production", label: "Production" },
+    ],
+    defaultCurrency: "IQD",
+    fields: [
+      { key: "merchant_id", label: "Merchant ID", secret: false, required: true },
+      { key: "msisdn", label: "MSISDN (رقم التاجر)", secret: false, required: true },
+      { key: "api_secret", label: "Secret (مفتاح توقيع JWT)", secret: true, required: true },
+    ],
+    supportsConnectionTest: false,
+    callbackKind: "callback",
+    webhookPath: "/api/public/webhooks/payments/zaincash",
+    recurring: false,
+    notes:
+      "Zain Cash لا يوفّر اشتراكات متكرّرة تلقائية ولا نقطة رسمية لاختبار بيانات الاعتماد — الدفع لدورة واحدة يدويًا عبر إعادة التوجيه ثم Callback موقّع بـ JWT.",
+  },
+];
+
+export const getProviderDef = (id: string) => PROVIDERS.find((p) => p.id === id);
+
+/* ------------------------------------------------------------------ */
+/* Encryption (AES-256-GCM)                                            */
+/* ------------------------------------------------------------------ */
+
+async function aesKey(): Promise<CryptoKey> {
+  const raw = process.env["PAYMENT_SECRETS_KEY"];
+  if (!raw) throw new Error("تخزين الأسرار غير مهيّأ على الخادم");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+  return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+
+const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
+const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+export async function encryptSecret(plain: string): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await aesKey(), new TextEncoder().encode(plain)),
+  );
+  return `v1.${b64(iv)}.${b64(ct)}`;
+}
+
+export async function decryptSecret(stored: string): Promise<string> {
+  const [v, ivB, ctB] = stored.split(".");
+  if (v !== "v1" || !ivB || !ctB) throw new Error("قيمة مخزّنة غير صالحة");
+  const pt = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: unb64(ivB) },
+    await aesKey(),
+    unb64(ctB),
+  );
+  return new TextDecoder().decode(pt);
+}
+
+/* ------------------------------------------------------------------ */
+/* Store                                                               */
+/* ------------------------------------------------------------------ */
+
+type Db = SupabaseClient<never>;
+
+export type ProviderSettingsRow = {
+  provider: string;
+  display_name: string;
+  enabled: boolean;
+  environment: string;
+  currency: string;
+  config: Record<string, string>;
+  status: string;
+  last_error: string | null;
+  last_tested_at: string | null;
+};
+
+async function db(): Promise<Db> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin as unknown as Db;
+}
+
+export async function readSettings(provider: string): Promise<ProviderSettingsRow | null> {
+  const client = await db();
+  const { data } = await client
+    .from("payment_provider_settings")
+    .select("*")
+    .eq("provider", provider)
+    .maybeSingle();
+  return (data as ProviderSettingsRow | null) ?? null;
+}
+
+export async function readAllSettings(): Promise<ProviderSettingsRow[]> {
+  const client = await db();
+  const { data } = await client.from("payment_provider_settings").select("*");
+  return (data as ProviderSettingsRow[] | null) ?? [];
+}
+
+/** أسماء المفاتيح السرّية المضبوطة لبيئة معيّنة (بدون أي قيم). */
+export async function configuredSecretKeys(provider: string, environment: string): Promise<string[]> {
+  const client = await db();
+  const { data } = await client
+    .from("payment_provider_secrets")
+    .select("key")
+    .eq("provider", provider)
+    .eq("environment", environment);
+  return ((data as Array<{ key: string }> | null) ?? []).map((r) => r.key);
+}
+
+export async function getSecret(
+  provider: string,
+  environment: string,
+  key: string,
+): Promise<string | null> {
+  const client = await db();
+  const { data } = await client
+    .from("payment_provider_secrets")
+    .select("value_encrypted")
+    .eq("provider", provider)
+    .eq("environment", environment)
+    .eq("key", key)
+    .maybeSingle();
+  const enc = (data as { value_encrypted: string } | null)?.value_encrypted;
+  if (!enc) return null;
+  try {
+    return await decryptSecret(enc);
+  } catch {
+    return null;
+  }
+}
+
+export async function putSecret(
+  provider: string,
+  environment: string,
+  key: string,
+  value: string,
+  updatedBy: string,
+): Promise<void> {
+  const client = await db();
+  await client.from("payment_provider_secrets").upsert(
+    {
+      provider,
+      environment,
+      key,
+      value_encrypted: await encryptSecret(value),
+      updated_by: updatedBy,
+      updated_at: new Date().toISOString(),
+    } as never,
+    { onConflict: "provider,environment,key" },
+  );
+}
+
+export async function deleteSecret(provider: string, environment: string, key: string) {
+  const client = await db();
+  await client
+    .from("payment_provider_secrets")
+    .delete()
+    .eq("provider", provider)
+    .eq("environment", environment)
+    .eq("key", key);
+}
+
+/** هل اكتملت كل الحقول المطلوبة للبيئة الحالية؟ */
+export async function completeness(def: ProviderDef, row: ProviderSettingsRow | null) {
+  const environment = row?.environment ?? def.environments[0]!.value;
+  const secretKeys = new Set(await configuredSecretKeys(def.id, environment));
+  const cfg = row?.config ?? {};
+  const fields = def.fields.map((f) => ({
+    key: f.key,
+    label: f.label,
+    secret: f.secret,
+    required: f.required,
+    configured: f.secret ? secretKeys.has(f.key) : Boolean(cfg[f.key]?.trim()),
+    // القيم العامة فقط تُعاد إلى الواجهة
+    value: f.secret ? null : (cfg[f.key] ?? null),
+  }));
+  const complete = fields.filter((f) => f.required).every((f) => f.configured);
+  return { environment, fields, complete };
+}
+
+export function computeStatus(opts: {
+  complete: boolean;
+  enabled: boolean;
+  lastError: string | null;
+}): "not_configured" | "configured" | "enabled" | "disabled" | "error" {
+  if (!opts.complete) return "not_configured";
+  if (opts.lastError) return "error";
+  if (opts.enabled) return "enabled";
+  return "configured";
+}
+
+/* ------------------------------------------------------------------ */
+/* Connection tests (حقيقية فقط — لا اختبارات وهمية)                   */
+/* ------------------------------------------------------------------ */
+
+export type TestResult = { supported: boolean; ok: boolean; message: string };
+
+async function testPaddle(environment: string): Promise<TestResult> {
+  const apiKey = await getSecret("paddle", environment, "api_key");
+  if (!apiKey) return { supported: true, ok: false, message: "بيانات الاعتماد غير مكتملة" };
+  const base =
+    environment === "production" ? "https://api.paddle.com" : "https://sandbox-api.paddle.com";
+  try {
+    const res = await fetch(`${base}/event-types`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.ok) return { supported: true, ok: true, message: "Connection successful" };
+    return {
+      supported: true,
+      ok: false,
+      message: `Connection failed (HTTP ${res.status}) — تحقّق من المفتاح والبيئة.`,
+    };
+  } catch {
+    return { supported: true, ok: false, message: "تعذّر الوصول إلى Paddle API" };
+  }
+}
+
+async function hmacBase64(key: string, message: string) {
+  const k = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(message)));
+  return b64(sig);
+}
+
+async function testPaytr(environment: string): Promise<TestResult> {
+  const id = await getSecret("paytr", environment, "merchant_id");
+  const key = await getSecret("paytr", environment, "merchant_key");
+  const salt = await getSecret("paytr", environment, "merchant_salt");
+  if (!id || !key || !salt)
+    return { supported: true, ok: false, message: "بيانات الاعتماد غير مكتملة" };
+
+  // طلب token حقيقي بأصغر حمولة ممكنة: PayTR يرفض التوقيع الخاطئ فورًا.
+  const merchant_oid = `test${Date.now()}`;
+  const user_basket = btoa(JSON.stringify([["connection-test", "1.00", 1]]));
+  const payment_amount = "100";
+  const no_installment = "1";
+  const max_installment = "0";
+  const currency = "TL";
+  const test_mode = environment === "live" ? "0" : "1";
+  const user_ip = "127.0.0.1";
+  const hashStr = `${id}${user_ip}${merchant_oid}test@example.com${payment_amount}${user_basket}${no_installment}${max_installment}${currency}${test_mode}`;
+  const paytr_token = await hmacBase64(key, hashStr + salt);
+
+  const form = new URLSearchParams({
+    merchant_id: id,
+    user_ip,
+    merchant_oid,
+    email: "test@example.com",
+    payment_amount,
+    paytr_token,
+    user_basket,
+    debug_on: "1",
+    no_installment,
+    max_installment,
+    currency,
+    test_mode,
+    user_name: "connection test",
+    user_address: "test",
+    user_phone: "05000000000",
+    merchant_ok_url: "https://example.com/ok",
+    merchant_fail_url: "https://example.com/fail",
+    timeout_limit: "5",
+  });
+
+  try {
+    const res = await fetch("https://www.paytr.com/odeme/api/get-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    });
+    const json = (await res.json()) as { status?: string; reason?: string };
+    if (json.status === "success") return { supported: true, ok: true, message: "Connection successful" };
+    return {
+      supported: true,
+      ok: false,
+      message: "Connection failed — تحقّق من بيانات الحساب والبيئة.",
+    };
+  } catch {
+    return { supported: true, ok: false, message: "تعذّر الوصول إلى PayTR API" };
+  }
+}
+
+export async function testConnection(provider: string, environment: string): Promise<TestResult> {
+  if (provider === "paddle") return testPaddle(environment);
+  if (provider === "paytr") return testPaytr(environment);
+  return {
+    supported: false,
+    ok: false,
+    message: "هذا المزوّد لا يوفّر نقطة رسمية لاختبار بيانات الاعتماد.",
+  };
+}
