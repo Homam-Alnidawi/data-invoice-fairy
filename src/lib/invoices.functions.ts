@@ -165,13 +165,16 @@ export const extractInvoice = createServerFn({ method: "POST" })
           },
         ],
       }),
+    }).catch(async (e: unknown) => {
+      await fail(new Error("تعذّر الاتصال بخدمة الذكاء الاصطناعي"));
+      throw e;
     });
 
     if (!res.ok) {
       const body = await res.text();
-      if (res.status === 429) throw new Error("تم تجاوز حد الطلبات، حاول بعد قليل");
-      if (res.status === 402) throw new Error("رصيد الذكاء الاصطناعي غير كافٍ");
-      throw new Error(`تعذّرت قراءة الفاتورة (${res.status}) ${body.slice(0, 160)}`);
+      if (res.status === 429) await fail(new Error("تم تجاوز حد الطلبات، حاول بعد قليل"));
+      if (res.status === 402) await fail(new Error("رصيد الذكاء الاصطناعي غير كافٍ"));
+      await fail(new Error(`تعذّرت قراءة الفاتورة (${res.status}) ${body.slice(0, 160)}`));
     }
 
     const json = (await res.json()) as {
@@ -179,14 +182,16 @@ export const extractInvoice = createServerFn({ method: "POST" })
     };
     const text = json.choices?.[0]?.message?.content ?? "";
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("لم نتمكن من تفسير محتوى الفاتورة");
+    if (!match) await fail(new Error("لم نتمكن من تفسير محتوى الفاتورة"));
 
     let raw: Record<string, unknown>;
     try {
-      raw = JSON.parse(match[0]) as Record<string, unknown>;
+      raw = JSON.parse(match![0]) as Record<string, unknown>;
     } catch {
-      throw new Error("لم نتمكن من تفسير محتوى الفاتورة");
+      await fail(new Error("لم نتمكن من تفسير محتوى الفاتورة"));
+      raw = {};
     }
+
 
     const c = (raw["confidence"] ?? {}) as Record<string, unknown>;
     const confidence: Confidence = {
