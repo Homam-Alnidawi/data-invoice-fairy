@@ -223,7 +223,18 @@ function Index() {
     [user, isPro],
   );
 
+  // حذف ملف من قائمة المعالجة — بدون إعادة الرصيد المستهلك
+  const removeJob = useCallback((id: string) => {
+    setJobs((prev) => {
+      const target = prev.find((j) => j.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((j) => j.id !== id);
+    });
+    setReviewId((cur) => (cur === id ? null : cur));
+  }, []);
+
   const signOut = useCallback(async () => {
+
     void trackFn({ data: { action: "logout" } }).catch(() => undefined);
     await supabase.auth.signOut();
     setJobs([]);
