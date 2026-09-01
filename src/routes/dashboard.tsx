@@ -1017,25 +1017,39 @@ function Index() {
                   {openMonth === group.key && (
                     <div className="border-t border-border">
                       {group.jobs.map((j) => (
-                        <button
+                        <div
                           key={j.id}
-                          type="button"
-                          onClick={() => setReviewId(j.id)}
                           className="flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-right last:border-0"
                         >
-                          <span className="min-w-0 flex-1 truncate text-[12px]">
+                          <button
+                            type="button"
+                            onClick={() => setReviewId(j.id)}
+                            className="min-w-0 flex-1 truncate text-right text-[12px]"
+                          >
                             {dash(j.data?.supplier)}{" "}
                             <span className="text-muted-foreground">
                               · {dash(j.data?.invoiceNumber)}
                             </span>
-                          </span>
-                          <span className="text-[12px] font-bold tabular-nums">
-                            {nf.format(j.data?.total ?? 0)}
-                            <span className="mr-1 text-[10px] text-muted-foreground">
-                              {currencySymbol(j.data?.currency ?? null)}
+                            <span className="mr-2 text-[12px] font-bold tabular-nums">
+                              {nf.format(j.data?.total ?? 0)}
+                              <span className="mr-1 text-[10px] text-muted-foreground">
+                                {currencySymbol(j.data?.currency ?? null)}
+                              </span>
                             </span>
-                          </span>
-                        </button>
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`حذف فاتورة ${j.fileName}`}
+                            title="حذف من الأرشيف (لا يُعاد الرصيد المستهلك)"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirm({ open: true, job: j });
+                            }}
+                            className="shrink-0 rounded-lg px-1.5 py-1 text-[13px] font-black leading-none text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
