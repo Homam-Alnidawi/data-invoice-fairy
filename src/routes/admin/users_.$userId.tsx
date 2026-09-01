@@ -211,6 +211,95 @@ function UserDetail() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold">Subscription</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setReason("");
+                setUseCustom(false);
+                setDays(30);
+                setGrantOpen(true);
+              }}
+              className="rounded-lg bg-foreground px-3 py-1.5 text-[12px] font-bold text-background"
+            >
+              Grant Pro
+            </button>
+            <button
+              onClick={() => {
+                setReason("");
+                setRevokeOpen(true);
+              }}
+              disabled={u.plan !== "pro"}
+              className="rounded-lg border border-destructive px-3 py-1.5 text-[12px] font-bold text-destructive disabled:opacity-40"
+            >
+              Revoke Pro
+            </button>
+          </div>
+        </div>
+
+        <dl className="mt-3 grid grid-cols-2 gap-3 text-[12px] lg:grid-cols-5">
+          <div>
+            <dt className="text-muted-foreground">Plan</dt>
+            <dd className="font-bold uppercase">{u.plan}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Status</dt>
+            <dd className="font-bold">{u.subscriptionStatus}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Billing</dt>
+            <dd className="font-bold">
+              {u.billingType}
+              {u.paymentProvider ? ` · ${u.paymentProvider}` : ""}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Start</dt>
+            <dd className="font-bold">{fmt(u.subscriptionStart)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Expiry</dt>
+            <dd className="font-bold">{fmt(u.subscriptionEnd)}</dd>
+          </div>
+        </dl>
+
+        <div className="mt-3 text-[12px] text-muted-foreground">
+          استخدام هذا الشهر: <b className="tabular-nums text-foreground">{u.invoiceUsage}</b> /{" "}
+          <b className="tabular-nums text-foreground">{u.invoiceLimit}</b> فاتورة
+        </div>
+
+        {(subs.data?.length ?? 0) > 0 && (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-right text-[11px]">
+              <thead className="bg-muted/60 text-muted-foreground">
+                <tr>
+                  <th className="p-2">الخطة</th>
+                  <th className="p-2">الحالة</th>
+                  <th className="p-2">النوع</th>
+                  <th className="p-2">المزوّد</th>
+                  <th className="p-2">البداية</th>
+                  <th className="p-2">الانتهاء</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subs.data!.map((s) => (
+                  <tr key={s.id} className="border-t border-border">
+                    <td className="p-2 font-bold uppercase">{s.plan}</td>
+                    <td className="p-2">{s.status}</td>
+                    <td className="p-2">{s.billingType}</td>
+                    <td className="p-2">{s.paymentProvider ?? "—"}</td>
+                    <td className="p-2">{fmt(s.start)}</td>
+                    <td className="p-2">{fmt(s.end)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="text-sm font-bold">إجراءات الحساب</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
