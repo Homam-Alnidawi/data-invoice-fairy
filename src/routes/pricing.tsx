@@ -8,6 +8,7 @@ import {
   listAvailablePaymentProviders,
   type PublicProvider,
 } from "@/lib/payments.functions";
+import { createCheckoutSession } from "@/lib/checkout.functions";
 
 export const Route = createFileRoute("/pricing")({
   ssr: false,
@@ -44,6 +45,8 @@ function Pricing() {
   const usageFn = useServerFn(getUsageState);
   const plansFn = useServerFn(listPublicPlans);
   const providersFn = useServerFn(listAvailablePaymentProviders);
+  const checkoutFn = useServerFn(createCheckoutSession);
+  const [starting, setStarting] = useState(false);
   const [usage, setUsage] = useState<UsageState | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [providers, setProviders] = useState<PublicProvider[]>([]);
@@ -71,13 +74,25 @@ function Pricing() {
     p ? `$${(p.priceCents / 100).toLocaleString("en-US")}` : "—";
   const proFeatures = proPlan?.features.length ? proPlan.features : PRO_FEATURES;
 
-  const subscribe = () => {
+  const subscribe = async () => {
     const chosen = providers.find((p) => p.id === provider);
     if (!chosen) {
       toast.error("اختر طريقة دفع متاحة أولًا.");
       return;
     }
-    toast.info(`سيتم تحويلك إلى ${chosen.displayName} لإتمام الدفع.`);
+    if (usage?.kind === "guest") {
+      toast.error("سجّل الدخول أولًا لإتمام الاشتراك.");
+      return;
+    }
+    setStarting(true);
+    try {
+      const res = await checkoutFn({ data: { provider: chosen.id, plan: "pro" } });
+      toast.success(`جارٍ تحويلك إلى ${chosen.displayName}…`);
+      window.location.href = res.url;
+    } catch (e) {
+      setStarting(false);
+      toast.error((e as Error).message || "تعذّر بدء عملية الدفع.");
+    }
   };
 
   return (
@@ -197,11 +212,11 @@ function Pricing() {
                 </div>
                 <button
                   type="button"
-                  onClick={subscribe}
-                  disabled={providers.length === 0}
+                  onClick={() => void subscribe()}
+                  disabled={providers.length === 0 || starting}
                   className="w-full rounded-xl bg-brand py-3.5 text-[14px] font-extrabold text-primary-foreground disabled:opacity-50"
                 >
-                  اشترك الآن — {money(proPlan)}/شهر
+                  {starting ? "جارٍ التحويل…" : `اشترك الآن — ${money(proPlan)}/شهر`}
                 </button>
               </>
             )}

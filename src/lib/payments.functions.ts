@@ -17,6 +17,18 @@ export type ProviderFieldView = {
   value: string | null;
 };
 
+export type EnvironmentView = {
+  value: string;
+  label: string;
+  complete: boolean;
+  fields: ProviderFieldView[];
+  testStatus: "passed" | "failed" | "not_tested" | "unsupported";
+  lastTestedAt: string | null;
+  testMessage: string | null;
+  canEnable: boolean;
+  enableBlockedReason: string | null;
+};
+
 export type ProviderView = {
   id: string;
   displayName: string;
@@ -28,6 +40,11 @@ export type ProviderView = {
   status: "not_configured" | "configured" | "enabled" | "disabled" | "error";
   complete: boolean;
   fields: ProviderFieldView[];
+  /** كل بيئة معزولة تمامًا: إعداداتها ونتيجة اختبارها وحالتها. */
+  environmentViews: EnvironmentView[];
+  testStatus: "passed" | "failed" | "not_tested" | "unsupported";
+  canEnable: boolean;
+  enableBlockedReason: string | null;
   supportsConnectionTest: boolean;
   callbackKind: "webhook" | "callback";
   webhookUrl: string;
@@ -51,8 +68,12 @@ export type PublicProvider = {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function originOf(): string {
-  return "https://data-invoice-fairy.lovable.app";
+/** أصل الموقع — من متغيّر بيئة APP_URL/PUBLIC_BASE_URL أو من رأس الطلب الحالي. */
+async function originOf(): Promise<string> {
+  const store = await import("./payment-providers.server");
+  const { getRequest } = await import("@tanstack/react-start/server");
+  const request = getRequest();
+  return store.appBaseUrl(request ?? undefined);
 }
 
 async function core() {
@@ -68,11 +89,50 @@ async function buildView(
   origin: string,
 ): Promise<ProviderView> {
   const row = await store.readSettings(def.id);
-  const { environment, fields, complete } = await store.completeness(def, row);
+  const environment = row?.environment ?? def.environments[0]!.value;
+
+  const environmentViews: EnvironmentView[] = [];
+  for (const e of def.environments) {
+    const { fields, complete } = await store.completeness(def, row, e.value);
+    const t = store.readTestResult(row, e.value);
+    const gate = await store.canEnable(def, row, e.value);
+    environmentViews.push({
+      value: e.value,
+      label: e.label,
+      complete,
+      fields: fields.map((s2) => {
+        const f = def.fields.find((x) => x.key === s2.key)!;
+        return {
+          key: f.key,
+          label: f.label,
+          secret: f.secret,
+          required: f.required,
+          ...(f.placeholder ? { placeholder: f.placeholder } : {}),
+          ...(f.hint ? { hint: f.hint } : {}),
+          configured: s2.configured,
+          value: s2.value,
+        };
+      }),
+      testStatus: !def.supportsConnectionTest
+        ? "unsupported"
+        : t
+          ? t.ok
+            ? "passed"
+            : "failed"
+          : "not_tested",
+      lastTestedAt: t?.at ?? null,
+      testMessage: t?.message ?? null,
+      canEnable: gate.ok,
+      enableBlockedReason: gate.reason ?? null,
+    });
+  }
+
+  const current = environmentViews.find((e) => e.value === environment) ?? environmentViews[0]!;
   const enabled = row?.enabled ?? false;
   const lastError = row?.last_error ?? null;
-  let status = store.computeStatus({ complete, enabled, lastError });
-  if (complete && !enabled && !lastError && row) status = "disabled";
+  let status = store.computeStatus({ complete: current.complete, enabled, lastError });
+  if (current.complete && !enabled && !lastError && row) status = "disabled";
+
   return {
     id: def.id,
     displayName: row?.display_name ?? def.displayName,
@@ -82,27 +142,19 @@ async function buildView(
     currency: row?.currency ?? def.defaultCurrency,
     enabled,
     status,
-    complete,
-    fields: def.fields.map((f) => {
-      const s = fields.find((x) => x.key === f.key)!;
-      return {
-        key: f.key,
-        label: f.label,
-        secret: f.secret,
-        required: f.required,
-        ...(f.placeholder ? { placeholder: f.placeholder } : {}),
-        ...(f.hint ? { hint: f.hint } : {}),
-        configured: s.configured,
-        value: s.value,
-      };
-    }),
+    complete: current.complete,
+    fields: current.fields,
+    environmentViews,
+    testStatus: current.testStatus,
+    canEnable: current.canEnable,
+    enableBlockedReason: current.enableBlockedReason,
     supportsConnectionTest: def.supportsConnectionTest,
     callbackKind: def.callbackKind,
     webhookUrl: `${origin}${def.webhookPath}`,
     recurring: def.recurring,
     ...(def.notes ? { notes: def.notes } : {}),
     lastError,
-    lastTestedAt: row?.last_tested_at ?? null,
+    lastTestedAt: current.lastTestedAt ?? row?.last_tested_at ?? null,
   };
 }
 
@@ -114,7 +166,7 @@ export const adminListPaymentProviders = createServerFn({ method: "GET" }).handl
   async (): Promise<ProviderView[]> => {
     const { store, assertAdmin } = await core();
     await assertAdmin();
-    const origin = originOf();
+    const origin = await originOf();
     return Promise.all(store.PROVIDERS.map((def) => buildView(store, def, origin)));
   },
 );
@@ -154,8 +206,8 @@ export const adminSavePaymentProvider = createServerFn({ method: "POST" })
     const cfg: Record<string, string> = { ...(existing?.config ?? {}) };
     for (const [k, v] of Object.entries(data.config)) {
       if (!publicKeys.has(k)) continue;
+      // عزل كامل حسب البيئة — لا مفاتيح عامة مشتركة
       cfg[`${data.environment}:${k}`] = v.trim();
-      cfg[k] = v.trim();
     }
 
     const { error } = await db.from("payment_provider_settings").upsert(
@@ -188,7 +240,7 @@ export const adminSavePaymentProvider = createServerFn({ method: "POST" })
       ...updatedSecrets,
     });
 
-    return buildView(store, def, originOf());
+    return buildView(store, def, await originOf());
   });
 
 /* ------------------------------------------------------------------ */
@@ -207,17 +259,18 @@ export const adminSetPaymentProviderEnabled = createServerFn({ method: "POST" })
     if (!def) throw new Error("مزوّد غير معروف");
 
     const row = await store.readSettings(def.id);
+    const environment = row?.environment ?? def.environments[0]!.value;
     if (data.enabled) {
-      const { complete } = await store.completeness(def, row);
-      // التحقق النهائي على الخادم — لا يُعتمد على الواجهة
-      if (!complete) throw new Error("لا يمكن التفعيل: الإعدادات غير مكتملة");
+      // التحقق النهائي على الخادم — لا يُعتمد على الواجهة إطلاقًا
+      const gate = await store.canEnable(def, row, environment);
+      if (!gate.ok) throw new Error(`لا يمكن التفعيل: ${gate.reason}`);
     }
 
     const { error } = await db.from("payment_provider_settings").upsert(
       {
         provider: def.id,
         display_name: row?.display_name ?? def.displayName,
-        environment: row?.environment ?? def.environments[0]!.value,
+        environment,
         currency: row?.currency ?? def.defaultCurrency,
         enabled: data.enabled,
       } as never,
@@ -227,10 +280,10 @@ export const adminSetPaymentProviderEnabled = createServerFn({ method: "POST" })
 
     await audit(actor, data.enabled ? "payment_provider_enabled" : "payment_provider_disabled", undefined, {
       provider: def.id,
-      environment: row?.environment ?? def.environments[0]!.value,
+      environment,
     });
 
-    return buildView(store, def, originOf());
+    return buildView(store, def, await originOf());
   });
 
 /* ------------------------------------------------------------------ */
@@ -238,27 +291,30 @@ export const adminSetPaymentProviderEnabled = createServerFn({ method: "POST" })
 /* ------------------------------------------------------------------ */
 
 export const adminTestPaymentProvider = createServerFn({ method: "POST" })
-  .inputValidator((i: unknown) => z.object({ provider: z.string().min(1).max(32) }).parse(i))
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        provider: z.string().min(1).max(32),
+        environment: z.string().min(1).max(32).optional(),
+      })
+      .parse(i),
+  )
   .handler(async ({ data }) => {
-    const { store, assertAdmin, audit, db } = await core();
+    const { store, assertAdmin, audit } = await core();
     const actor = await assertAdmin();
 
     const def = store.getProviderDef(data.provider);
     if (!def) throw new Error("مزوّد غير معروف");
 
     const row = await store.readSettings(def.id);
-    const environment = row?.environment ?? def.environments[0]!.value;
+    const environment = data.environment ?? row?.environment ?? def.environments[0]!.value;
+    if (!def.environments.some((e) => e.value === environment))
+      throw new Error("بيئة غير صالحة");
+
     const result = await store.testConnection(def.id, environment);
 
-    if (result.supported) {
-      await db
-        .from("payment_provider_settings")
-        .update({
-          last_tested_at: new Date().toISOString(),
-          last_error: result.ok ? null : result.message,
-        } as never)
-        .eq("provider", def.id);
-    }
+    // النتيجة تُحفظ لكل بيئة على حدة؛ الفشل يعطّل البوابة فورًا.
+    if (result.supported) await store.recordTestResult(def.id, environment, result);
 
     await audit(actor, "payment_provider_tested", undefined, {
       provider: def.id,
@@ -284,6 +340,9 @@ export const listAvailablePaymentProviders = createServerFn({ method: "GET" }).h
       if (!row?.enabled) continue;
       const { complete, environment, fields } = await store.completeness(def, row);
       if (!complete) continue;
+      const gate = await store.canEnable(def, row, environment);
+      if (!gate.ok) continue;
+
       const publicConfig: Record<string, string> = {};
       for (const f of fields) if (!f.secret && f.value) publicConfig[f.key] = f.value;
       out.push({

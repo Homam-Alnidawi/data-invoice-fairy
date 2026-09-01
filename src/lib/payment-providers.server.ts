@@ -57,7 +57,15 @@ export const PROVIDERS: ProviderDef[] = [
       { key: "merchant_id", label: "Merchant ID", secret: true, required: true },
       { key: "merchant_key", label: "Merchant Key", secret: true, required: true },
       { key: "merchant_salt", label: "Merchant Salt", secret: true, required: true },
+      {
+        key: "pro_amount",
+        label: "مبلغ خطة Pro (بالكروش — 2500 = 25.00 TL)",
+        secret: false,
+        required: false,
+        hint: "اختياري: إن تُرك فارغًا يُستخدم سعر الخطة من جدول الخطط.",
+      },
     ],
+
     supportsConnectionTest: true,
     callbackKind: "callback",
     webhookPath: "/api/public/webhooks/payments/paytr",
@@ -116,7 +124,15 @@ export const PROVIDERS: ProviderDef[] = [
       { key: "merchant_id", label: "Merchant ID", secret: false, required: true },
       { key: "msisdn", label: "MSISDN (رقم التاجر)", secret: false, required: true },
       { key: "api_secret", label: "Secret (مفتاح توقيع JWT)", secret: true, required: true },
+      {
+        key: "pro_amount",
+        label: "مبلغ خطة Pro (IQD)",
+        secret: false,
+        required: false,
+        hint: "اختياري: إن تُرك فارغًا يُستخدم سعر الخطة من جدول الخطط.",
+      },
     ],
+
     supportsConnectionTest: false,
     callbackKind: "callback",
     webhookPath: "/api/public/webhooks/payments/zaincash",
@@ -162,10 +178,37 @@ export async function decryptSecret(stored: string): Promise<string> {
 }
 
 /* ------------------------------------------------------------------ */
+/* Base URL (قابل للتهيئة — لا نطاق مثبّت داخل منطق الدفع)             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * أصل الموقع العام المستخدم في روابط الـ callback / webhook.
+ * يُقرأ من متغيّرات البيئة أولًا (APP_URL أو PUBLIC_BASE_URL) ثم من رأس الطلب.
+ * لا يوجد أي نطاق مكتوب داخل منطق الدفع نفسه.
+ */
+export function appBaseUrl(request?: Request): string {
+  const fromEnv = process.env["APP_URL"] ?? process.env["PUBLIC_BASE_URL"] ?? "";
+  if (fromEnv) return fromEnv.replace(/\/+$/, "");
+  if (request) {
+    try {
+      const u = new URL(request.url);
+      const proto = request.headers.get("x-forwarded-proto") ?? u.protocol.replace(":", "");
+      const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? u.host;
+      if (host) return `${proto}://${host}`;
+    } catch {
+      /* ignore */
+    }
+  }
+  return "";
+}
+
+/* ------------------------------------------------------------------ */
 /* Store                                                               */
 /* ------------------------------------------------------------------ */
 
 type Db = SupabaseClient<never>;
+
+export type TestResult2 = { ok: boolean; at: string; message: string };
 
 export type ProviderSettingsRow = {
   provider: string;
@@ -177,7 +220,35 @@ export type ProviderSettingsRow = {
   status: string;
   last_error: string | null;
   last_tested_at: string | null;
+  test_results?: Record<string, TestResult2> | null;
 };
+
+/** قيمة إعداد عام معزولة حسب البيئة: `<env>:<key>`. */
+export function cfgValue(
+  row: ProviderSettingsRow | null,
+  environment: string,
+  key: string,
+): string | null {
+  const cfg = row?.config ?? {};
+  const scoped = cfg[`${environment}:${key}`];
+  if (scoped !== undefined && scoped !== null && String(scoped).trim() !== "") return String(scoped);
+  // توافق خلفي فقط مع البيانات المحفوظة قبل الفصل، ولنفس بيئة الصفّ.
+  const hasScoped = Object.keys(cfg).some((k) => k.startsWith(`${environment}:`));
+  if (!hasScoped && row?.environment === environment) {
+    const legacy = cfg[key];
+    if (legacy && String(legacy).trim() !== "") return String(legacy);
+  }
+  return null;
+}
+
+export function readTestResult(
+  row: ProviderSettingsRow | null,
+  environment: string,
+): TestResult2 | null {
+  const map = (row?.test_results ?? {}) as Record<string, TestResult2>;
+  return map[environment] ?? null;
+}
+
 
 async function db(): Promise<Db> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -264,23 +335,48 @@ export async function deleteSecret(provider: string, environment: string, key: s
     .eq("key", key);
 }
 
-/** هل اكتملت كل الحقول المطلوبة للبيئة الحالية؟ */
-export async function completeness(def: ProviderDef, row: ProviderSettingsRow | null) {
-  const environment = row?.environment ?? def.environments[0]!.value;
+/** هل اكتملت كل الحقول المطلوبة لبيئة محدّدة؟ (عزل كامل بين البيئات) */
+export async function completeness(
+  def: ProviderDef,
+  row: ProviderSettingsRow | null,
+  env?: string,
+) {
+  const environment = env ?? row?.environment ?? def.environments[0]!.value;
   const secretKeys = new Set(await configuredSecretKeys(def.id, environment));
-  const cfg = row?.config ?? {};
-  const fields = def.fields.map((f) => ({
-    key: f.key,
-    label: f.label,
-    secret: f.secret,
-    required: f.required,
-    configured: f.secret ? secretKeys.has(f.key) : Boolean(cfg[f.key]?.trim()),
-    // القيم العامة فقط تُعاد إلى الواجهة
-    value: f.secret ? null : (cfg[f.key] ?? null),
-  }));
+  const fields = def.fields.map((f) => {
+    const value = f.secret ? null : cfgValue(row, environment, f.key);
+    return {
+      key: f.key,
+      label: f.label,
+      secret: f.secret,
+      required: f.required,
+      configured: f.secret ? secretKeys.has(f.key) : Boolean(value),
+      // القيم العامة فقط تُعاد إلى الواجهة
+      value,
+    };
+  });
   const complete = fields.filter((f) => f.required).every((f) => f.configured);
   return { environment, fields, complete };
 }
+
+/**
+ * شروط التفعيل — تُفرض على الخادم:
+ * اكتمال الإعدادات + (لمن يدعم الاختبار) اختبار ناجح لنفس البيئة.
+ */
+export async function canEnable(
+  def: ProviderDef,
+  row: ProviderSettingsRow | null,
+  environment: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  const { complete } = await completeness(def, row, environment);
+  if (!complete) return { ok: false, reason: "الإعدادات المطلوبة غير مكتملة لهذه البيئة." };
+  if (!def.supportsConnectionTest) return { ok: true };
+  const t = readTestResult(row, environment);
+  if (!t) return { ok: false, reason: "نفّذ Test Connection لهذه البيئة أولًا." };
+  if (!t.ok) return { ok: false, reason: "آخر اختبار اتصال لهذه البيئة لم ينجح." };
+  return { ok: true };
+}
+
 
 export function computeStatus(opts: {
   complete: boolean;
@@ -397,4 +493,181 @@ export async function testConnection(provider: string, environment: string): Pro
     ok: false,
     message: "هذا المزوّد لا يوفّر نقطة رسمية لاختبار بيانات الاعتماد.",
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Test results (مخزَّنة لكل بيئة على حدة — بدون أي أسرار)             */
+/* ------------------------------------------------------------------ */
+
+export async function recordTestResult(
+  provider: string,
+  environment: string,
+  result: TestResult,
+): Promise<void> {
+  const client = await db();
+  const row = await readSettings(provider);
+  const map = { ...((row?.test_results ?? {}) as Record<string, TestResult2>) };
+  map[environment] = { ok: result.ok, at: new Date().toISOString(), message: result.message };
+  await client
+    .from("payment_provider_settings")
+    .update({
+      test_results: map as never,
+      last_tested_at: new Date().toISOString(),
+      last_error: result.ok ? null : result.message,
+      // أي فشل اختبار يوقف التفعيل فورًا
+      ...(result.ok ? {} : { enabled: false }),
+    } as never)
+    .eq("provider", provider);
+}
+
+/* ------------------------------------------------------------------ */
+/* Checkout — تُنشأ على الخادم فقط، ولا يصل أي سرّ إلى المتصفح          */
+/* ------------------------------------------------------------------ */
+
+export type CheckoutInput = {
+  def: ProviderDef;
+  row: ProviderSettingsRow | null;
+  environment: string;
+  userId: string;
+  email: string | null;
+  plan: string;
+  /** المبلغ بالوحدة الصغرى لعملة المزوّد (kuruş/cent)، أو بالوحدة الكاملة لـ IQD. */
+  amount: number;
+  currency: string;
+  merchantOid: string;
+  baseUrl: string;
+  clientIp: string;
+};
+
+export type CheckoutResult = { url: string; reference: string | null };
+
+async function paddleCheckout(i: CheckoutInput): Promise<CheckoutResult> {
+  const apiKey = await getSecret("paddle", i.environment, "api_key");
+  const priceId = cfgValue(i.row, i.environment, "price_id");
+  if (!apiKey || !priceId) throw new Error("بوابة الدفع غير مكتملة الإعداد لهذه البيئة.");
+  const base =
+    i.environment === "production" ? "https://api.paddle.com" : "https://sandbox-api.paddle.com";
+
+  const res = await fetch(`${base}/transactions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      items: [{ price_id: priceId, quantity: 1 }],
+      custom_data: { merchant_oid: i.merchantOid, user_id: i.userId, plan: i.plan },
+      checkout: { url: `${i.baseUrl}/dashboard?checkout=paddle` },
+    }),
+  });
+  const json = (await res.json().catch(() => ({}))) as {
+    data?: { id?: string; checkout?: { url?: string } };
+  };
+  const url = json.data?.checkout?.url;
+  if (!res.ok || !url) throw new Error("تعذّر إنشاء عملية الدفع لدى Paddle.");
+  return { url, reference: json.data?.id ?? null };
+}
+
+async function paytrCheckout(i: CheckoutInput): Promise<CheckoutResult> {
+  const id = await getSecret("paytr", i.environment, "merchant_id");
+  const key = await getSecret("paytr", i.environment, "merchant_key");
+  const salt = await getSecret("paytr", i.environment, "merchant_salt");
+  if (!id || !key || !salt) throw new Error("بوابة الدفع غير مكتملة الإعداد لهذه البيئة.");
+
+  const email = i.email ?? "customer@example.com";
+  const amount = String(i.amount);
+  const basket = btoa(
+    unescape(encodeURIComponent(JSON.stringify([[`Plan ${i.plan}`, (i.amount / 100).toFixed(2), 1]]))),
+  );
+  const no_installment = "1";
+  const max_installment = "0";
+  const currency = i.currency || "TL";
+  const test_mode = i.environment === "live" ? "0" : "1";
+  const user_ip = i.clientIp;
+  const hashStr = `${id}${user_ip}${i.merchantOid}${email}${amount}${basket}${no_installment}${max_installment}${currency}${test_mode}`;
+  const paytr_token = await hmacBase64(key, hashStr + salt);
+
+  const form = new URLSearchParams({
+    merchant_id: id,
+    user_ip,
+    merchant_oid: i.merchantOid,
+    email,
+    payment_amount: amount,
+    paytr_token,
+    user_basket: basket,
+    debug_on: "0",
+    no_installment,
+    max_installment,
+    currency,
+    test_mode,
+    user_name: email.split("@")[0]!,
+    user_address: "-",
+    user_phone: "05000000000",
+    merchant_ok_url: `${i.baseUrl}/dashboard?checkout=paytr&result=ok`,
+    merchant_fail_url: `${i.baseUrl}/pricing?checkout=paytr&result=fail`,
+    timeout_limit: "30",
+  });
+
+  const res = await fetch("https://www.paytr.com/odeme/api/get-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form.toString(),
+  });
+  const json = (await res.json().catch(() => ({}))) as { status?: string; token?: string };
+  if (json.status !== "success" || !json.token) {
+    throw new Error("تعذّر إنشاء عملية الدفع لدى PayTR.");
+  }
+  return { url: `https://www.paytr.com/odeme/guvenli/${json.token}`, reference: i.merchantOid };
+}
+
+function b64url(input: string) {
+  return btoa(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** توقيع JWT بـ HS256 (Zain Cash). */
+export async function signJwtHs256(payload: Record<string, unknown>, secret: string) {
+  const head = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = b64url(JSON.stringify(payload));
+  const sig = (await hmacBase64(secret, `${head}.${body}`))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  return `${head}.${body}.${sig}`;
+}
+
+async function zaincashCheckout(i: CheckoutInput): Promise<CheckoutResult> {
+  const merchantId = cfgValue(i.row, i.environment, "merchant_id");
+  const msisdn = cfgValue(i.row, i.environment, "msisdn");
+  const secret = await getSecret("zaincash", i.environment, "api_secret");
+  if (!merchantId || !msisdn || !secret)
+    throw new Error("بوابة الدفع غير مكتملة الإعداد لهذه البيئة.");
+
+  const base =
+    i.environment === "production" ? "https://api.zaincash.iq" : "https://test.zaincash.iq";
+  const now = Math.floor(Date.now() / 1000);
+  const token = await signJwtHs256(
+    {
+      amount: i.amount,
+      serviceType: `Plan ${i.plan}`,
+      msisdn,
+      orderId: i.merchantOid,
+      redirectUrl: `${i.baseUrl}${i.def.webhookPath}`,
+      iat: now,
+      exp: now + 60 * 60 * 4,
+    },
+    secret,
+  );
+
+  const res = await fetch(`${base}/transaction/init`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token, merchantId, lang: "ar" }).toString(),
+  });
+  const json = (await res.json().catch(() => ({}))) as { id?: string };
+  if (!res.ok || !json.id) throw new Error("تعذّر إنشاء عملية الدفع لدى Zain Cash.");
+  return { url: `${base}/transaction/pay?id=${json.id}`, reference: json.id };
+}
+
+export async function createProviderCheckout(i: CheckoutInput): Promise<CheckoutResult> {
+  if (i.def.id === "paddle") return paddleCheckout(i);
+  if (i.def.id === "paytr") return paytrCheckout(i);
+  if (i.def.id === "zaincash") return zaincashCheckout(i);
+  throw new Error("هذا المزوّد لا يدعم إنشاء عملية دفع.");
 }

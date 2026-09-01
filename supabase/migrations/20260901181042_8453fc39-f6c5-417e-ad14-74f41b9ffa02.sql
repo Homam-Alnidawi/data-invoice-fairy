@@ -1,0 +1,2 @@
+REVOKE ALL ON FUNCTION public.set_subscription_status(uuid, text, text, timestamp with time zone) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_subscription_status(uuid, text, text, timestamp with time zone) TO service_role;
