@@ -1109,6 +1109,40 @@ function Index() {
         />
       )}
 
+      <AlertDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => setDeleteConfirm((prev) => ({ ...prev, open }))}
+      >
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف الفاتورة من الأرشيف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد أنك تريد حذف{" "}
+              <span className="font-bold text-foreground">
+                {deleteConfirm.job?.fileName ?? "هذه الفاتورة"}
+              </span>
+              ؟ لا يمكن التراجع عن هذا الإجراء، ولن يُعاد الرصيد المستهلك.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel onClick={() => setDeleteConfirm({ open: false, job: null })}>
+              إلغاء
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirm.job) {
+                  removeJob(deleteConfirm.job.id);
+                }
+                setDeleteConfirm({ open: false, job: null });
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              نعم، احذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {upgradeOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
           <div className="w-full max-w-md rounded-t-2xl bg-background p-5 text-center sm:rounded-2xl">
