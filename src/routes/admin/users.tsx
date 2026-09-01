@@ -31,6 +31,9 @@ function UsersPage() {
   const { data, isLoading, error } = useQuery({ queryKey: ["admin-users"], queryFn: () => load() });
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "disabled">("all");
+  const [subFilter, setSubFilter] = useState<
+    "all" | "free" | "pro" | "sub_active" | "expired" | "admin_grant" | "paid"
+  >("all");
   const [sort, setSort] = useState<SortKey>("createdAt");
   const [page, setPage] = useState(0);
   const [openAdd, setOpenAdd] = useState(false);
@@ -58,13 +61,22 @@ function UsersPage() {
           u.id.includes(needle),
       );
     if (status !== "all") r = r.filter((u) => u.status === status);
+    if (subFilter !== "all")
+      r = r.filter((u) => {
+        if (subFilter === "free") return u.plan !== "pro";
+        if (subFilter === "pro") return u.plan === "pro";
+        if (subFilter === "sub_active") return u.subscriptionStatus === "active";
+        if (subFilter === "expired") return u.subscriptionStatus === "expired";
+        if (subFilter === "admin_grant") return u.billingType === "admin_grant";
+        return u.billingType === "paid";
+      });
     return [...r].sort((a, b) => {
       if (sort === "email") return (a.email ?? "").localeCompare(b.email ?? "");
       if (sort === "invoicesProcessed") return b.invoicesProcessed - a.invoicesProcessed;
       const key = sort === "createdAt" ? "createdAt" : "lastActivity";
       return new Date(b[key] ?? 0).getTime() - new Date(a[key] ?? 0).getTime();
     });
-  }, [data, q, status, sort]);
+  }, [data, q, status, subFilter, sort]);
 
   const pages = Math.max(1, Math.ceil(rows.length / PAGE));
   const view = rows.slice(page * PAGE, page * PAGE + PAGE);
@@ -101,6 +113,22 @@ function UsersPage() {
           <option value="disabled">Disabled</option>
         </select>
         <select
+          value={subFilter}
+          onChange={(e) => {
+            setSubFilter(e.target.value as typeof subFilter);
+            setPage(0);
+          }}
+          className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+        >
+          <option value="all">كل الاشتراكات</option>
+          <option value="free">Free</option>
+          <option value="pro">Pro</option>
+          <option value="sub_active">Active</option>
+          <option value="expired">Expired</option>
+          <option value="admin_grant">Admin Grant</option>
+          <option value="paid">Paid</option>
+        </select>
+        <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
           className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
@@ -122,12 +150,17 @@ function UsersPage() {
 
       {view.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full min-w-[880px] text-right text-[12px]">
+          <table className="w-full min-w-[1180px] text-right text-[12px]">
             <thead className="bg-muted/60 text-[11px] text-muted-foreground">
               <tr>
                 <th className="p-2">الاسم</th>
                 <th className="p-2">البريد</th>
                 <th className="p-2">الدور</th>
+                <th className="p-2">Plan</th>
+                <th className="p-2">Sub</th>
+                <th className="p-2">Billing</th>
+                <th className="p-2">Start</th>
+                <th className="p-2">Expiry</th>
                 <th className="p-2">الحالة</th>
                 <th className="p-2">التسجيل</th>
                 <th className="p-2">آخر دخول</th>
@@ -149,6 +182,19 @@ function UsersPage() {
                     {u.email ?? "—"}
                   </td>
                   <td className="p-2">{u.role}</td>
+                  <td className="p-2">
+                    <span
+                      className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                        u.plan === "pro" ? "bg-brand/15 text-brand" : "bg-muted"
+                      }`}
+                    >
+                      {u.plan}
+                    </span>
+                  </td>
+                  <td className="p-2">{u.subscriptionStatus}</td>
+                  <td className="p-2">{u.billingType}</td>
+                  <td className="p-2">{fmt(u.subscriptionStart)}</td>
+                  <td className="p-2">{fmt(u.subscriptionEnd)}</td>
                   <td className="p-2">
                     <span
                       className={`rounded px-2 py-0.5 text-[10px] font-bold ${
