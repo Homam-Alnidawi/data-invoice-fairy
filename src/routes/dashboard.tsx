@@ -1,33 +1,35 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   extractInvoice,
+  parseQuotaError,
   type ExtractedInvoice,
   type InvoiceItem,
 } from "@/lib/invoices.functions";
+import { getUsageState, type UsageState } from "@/lib/usage.functions";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({
+export const Route = createFileRoute("/dashboard")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "لوحة التحكم — دفتر" },
       {
         name: "description",
         content:
-          "ارفع فواتير مشترياتك بلا حدّ أقصى ويقوم دفتر بقراءتها بالـAI/OCR واستخراج الموردين والمنتجات والأسعار وحساب المجموع والضريبة في تقرير جاهز للتصدير.",
+          "ارفع فواتير مشترياتك ويقوم دفتر بقراءتها بالـAI/OCR واستخراج الموردين والمنتجات والأسعار وحساب المجموع والضريبة في تقرير جاهز للتصدير.",
       },
       { property: "og:title", content: "دفتر — قراءة فواتير المشتريات بالذكاء الاصطناعي" },
       {
         property: "og:description",
-        content: "ارفع أي عدد من الفواتير واحصل على سِجِلّ منظّم وتقرير بالمجاميع والضرائب.",
+        content: "ارفع فواتيرك واحصل على سِجِلّ منظّم وتقرير بالمجاميع والضرائب.",
       },
     ],
   }),
   component: Index,
 });
-
 
 const CONCURRENCY = 4;
 const PAGE_SIZE = 8;
@@ -41,6 +43,8 @@ type Job = {
   progress: number;
   error?: string;
   previewUrl?: string;
+  mimeType?: string;
+  createdAt?: string;
   data?: ExtractedInvoice;
 };
 
@@ -59,6 +63,26 @@ const statusLabel: Record<Status, string> = {
   rejected: "Rejected",
   error: "Rejected",
 };
+
+const AR_MONTHS = [
+  "يناير",
+  "فبراير",
+  "مارس",
+  "أبريل",
+  "مايو",
+  "يونيو",
+  "يوليو",
+  "أغسطس",
+  "سبتمبر",
+  "أكتوبر",
+  "نوفمبر",
+  "ديسمبر",
+];
+
+function monthLabel(key: string) {
+  const [y, m] = key.split("-");
+  return `${AR_MONTHS[Number(m) - 1] ?? m} ${y}`;
+}
 
 function currencySymbol(code: string | null) {
   if (!code) return "";
@@ -81,26 +105,61 @@ function readAsDataUrl(file: File) {
 
 function Index() {
   const extract = useServerFn(extractInvoice);
+  const usageFn = useServerFn(getUsageState);
   const navigate = useNavigate();
-  const { user } = Route.useRouteContext();
+  const [user, setUser] = useState<{ id: string; email: string | null } | null>(null);
+  const [usage, setUsage] = useState<UsageState | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [page, setPage] = useState(0);
   const [running, setRunning] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openMonth, setOpenMonth] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isPro = usage?.kind === "pro";
 
   const patch = useCallback((id: string, next: Partial<Job>) => {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...next } : j)));
   }, []);
 
-  // تحميل فواتير هذا المستخدم فقط (محميّة بقواعد RLS في قاعدة البيانات)
+  // جلسة المستخدم (اختيارية — الزائر يستطيع التجربة بدون حساب)
   useEffect(() => {
+    let alive = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!alive) return;
+      setUser(data.user ? { id: data.user.id, email: data.user.email ?? null } : null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ? { id: session.user.id, email: session.user.email ?? null } : null);
+    });
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  const refreshUsage = useCallback(async () => {
+    try {
+      setUsage(await usageFn({}));
+    } catch {
+      /* تجاهل — لا يعطّل الواجهة */
+    }
+  }, [usageFn]);
+
+  useEffect(() => {
+    void refreshUsage();
+  }, [refreshUsage, user]);
+
+  // سجل الفواتير المحفوظ — ميزة Pro فقط (محميّ بقواعد RLS)
+  useEffect(() => {
+    if (!isPro) return;
     let alive = true;
     void (async () => {
       const { data, error } = await supabase
         .from("invoices")
-        .select("id, file_name, status, data")
+        .select("id, file_name, status, data, created_at")
         .order("created_at", { ascending: false });
       if (error || !alive || !data) return;
       const saved: Job[] = data.map((row) => ({
@@ -108,17 +167,23 @@ function Index() {
         fileName: row.file_name,
         status: (row.status as Status) ?? "done",
         progress: 100,
+        createdAt: row.created_at,
         data: row.data as unknown as ExtractedInvoice,
       }));
-      setJobs((prev) => [...prev, ...saved]);
+      setJobs((prev) => {
+        const known = new Set(prev.map((j) => j.id));
+        return [...prev, ...saved.filter((s) => !known.has(s.id))];
+      });
     })();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [isPro]);
 
+  // الحفظ الدائم متاح لمستخدمي Pro فقط — لا تُحفظ ملفات الزائر أو Free
   const persist = useCallback(
     async (fileName: string, status: Status, inv: ExtractedInvoice) => {
+      if (!user || !isPro) return;
       const { error } = await supabase.from("invoices").insert({
         user_id: user.id,
         file_name: fileName,
@@ -135,41 +200,60 @@ function Index() {
       });
       if (error) console.error(error);
     },
-    [user.id],
+    [user, isPro],
   );
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    void navigate({ to: "/login", replace: true });
+    setJobs([]);
+    void navigate({ to: "/", replace: true });
   }, [navigate]);
 
   const handleFiles = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
-      const files = Array.from(fileList);
+      let files = Array.from(fileList);
+
+      const remaining = usage ? Math.max(0, usage.limit - usage.used) : files.length;
+      if (usage && remaining === 0) {
+        setUpgradeOpen(true);
+        return;
+      }
+      if (usage && files.length > remaining) {
+        files = files.slice(0, remaining);
+        toast.error(`رصيدك يسمح بمعالجة ${remaining} فاتورة فقط الآن`);
+      }
 
       const newJobs: Job[] = files.map((f, i) => ({
         id: `${Date.now()}-${i}-${f.name}`,
         fileName: f.name,
         status: "queued",
         progress: 0,
+        mimeType: f.type,
+        previewUrl: URL.createObjectURL(f),
       }));
       setJobs((prev) => [...newJobs, ...prev]);
       setRunning(true);
 
+      let quotaHit = false;
       let cursor = 0;
       const worker = async () => {
         while (cursor < files.length) {
           const index = cursor++;
+          if (quotaHit) {
+            patch(newJobs[index]!.id, {
+              status: "error",
+              progress: 100,
+              error: "انتهى الرصيد المجاني",
+            });
+            continue;
+          }
           const file = files[index]!;
           const job = newJobs[index]!;
           patch(job.id, { status: "processing", progress: 25 });
           try {
             const dataUrl = await readAsDataUrl(file);
-            patch(job.id, {
-              progress: 60,
-              ...(file.type.startsWith("image/") ? { previewUrl: dataUrl } : {}),
-            });
+            patch(job.id, { progress: 60 });
 
             const data = await extract({
               data: { fileName: file.name, mimeType: file.type, dataUrl },
@@ -183,22 +267,32 @@ function Index() {
             patch(job.id, { status: nextStatus, progress: 100, data });
             void persist(file.name, nextStatus, data);
           } catch (err) {
-            // فشل فاتورة واحدة لا يوقف البقية
-            patch(job.id, {
-              status: "error",
-              progress: 100,
-              error: err instanceof Error ? err.message : "خطأ غير معروف",
-            });
+            const message = err instanceof Error ? err.message : "خطأ غير معروف";
+            const quota = parseQuotaError(message);
+            if (quota) {
+              quotaHit = true;
+              setUpgradeOpen(true);
+              patch(job.id, {
+                status: "error",
+                progress: 100,
+                error: "انتهى رصيدك — قم بالترقية",
+              });
+            } else {
+              // فشل فاتورة واحدة لا يوقف البقية (ولا يُخصم رصيد)
+              patch(job.id, { status: "error", progress: 100, error: message });
+            }
           }
         }
       };
 
       await Promise.all(Array.from({ length: CONCURRENCY }, worker));
       setRunning(false);
-      toast.success("انتهت معالجة الدفعة");
+      void refreshUsage();
+      if (!quotaHit) toast.success("انتهت معالجة الدفعة");
     },
-    [extract, patch, persist],
+    [extract, patch, persist, usage, refreshUsage],
   );
+
 
   const parsedJobs = useMemo(
     () => jobs.filter((j) => j.data && j.data.status !== "rejected"),
