@@ -2,7 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 import { AuthShell, field, primaryBtn } from "@/components/auth-shell";
+import { trackActivity } from "@/lib/activity.functions";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -21,6 +23,7 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const trackActivityFn = useServerFn(trackActivity);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
