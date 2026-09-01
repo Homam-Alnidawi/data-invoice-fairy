@@ -50,3 +50,13 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## التشغيل بشكل مستقل (Standalone Deployment)
+
+المعمارية: GitHub → Vercel/Hosting → Supabase (Auth + Database + Storage) → Server Functions → مزوّد AI خارجي.
+
+1. انسخ `.env.example` إلى `.env` واملأ القيم.
+2. المفاتيح السرية (`SUPABASE_SERVICE_ROLE_KEY`, `AI_API_KEY`) تُضاف كمتغيرات بيئة على الخادم فقط — لا تبدأ أبدًا بـ `VITE_`.
+3. اختر مزوّد الذكاء الاصطناعي من **Admin → Settings → AI Provider** (Gemini / OpenAI / Anthropic / Custom)، ثم اضغط **Test AI Connection**.
+4. لا حاجة إلى حساب Lovable بعد ضبط مزوّد خارجي؛ خيار `lovable` يبقى كخيار احتياطي فقط.
+5. جميع الحدود والأسرار تُفرض داخل Server Functions المحمية بدور Admin — لا شيء منها يصل إلى المتصفح.
