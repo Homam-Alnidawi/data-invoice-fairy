@@ -9,6 +9,7 @@ import {
   type PublicProvider,
 } from "@/lib/payments.functions";
 import { createCheckoutSession } from "@/lib/checkout.functions";
+import { LanguageSwitcher, useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/pricing")({
   ssr: false,
@@ -30,18 +31,10 @@ export const Route = createFileRoute("/pricing")({
   component: Pricing,
 });
 
-const PRO_FEATURES = [
-  "1000 فاتورة شهريًا",
-  "حفظ الفواتير في حسابك",
-  "سجل الفواتير والأرشيف الشهري",
-  "الرجوع إلى الفواتير السابقة في أي وقت",
-  "المراجعة اليدوية وتعديل البيانات",
-  "تحليل الفواتير بالذكاء الاصطناعي (مطبوع + خط يد)",
-  "تصدير Excel و CSV و PDF",
-  "جميع مزايا الخدمة",
-];
+
 
 function Pricing() {
+  const { t } = useI18n();
   const usageFn = useServerFn(getUsageState);
   const plansFn = useServerFn(listPublicPlans);
   const providersFn = useServerFn(listAvailablePaymentProviders);
@@ -72,26 +65,28 @@ function Pricing() {
   const proPlan = plans.find((p) => p.code === "pro");
   const money = (p?: Plan) =>
     p ? `$${(p.priceCents / 100).toLocaleString("en-US")}` : "—";
-  const proFeatures = proPlan?.features.length ? proPlan.features : PRO_FEATURES;
+  const proFeatures = proPlan?.features.length
+    ? proPlan.features
+    : ["pr.feature1","pr.feature2","pr.feature3","pr.feature4","pr.feature5","pr.feature6","pr.feature7"].map((k) => t(k));
 
   const subscribe = async () => {
     const chosen = providers.find((p) => p.id === provider);
     if (!chosen) {
-      toast.error("اختر طريقة دفع متاحة أولًا.");
+      toast.error(t("pr.toastChoose"));
       return;
     }
     if (usage?.kind === "guest") {
-      toast.error("سجّل الدخول أولًا لإتمام الاشتراك.");
+      toast.error(t("pr.toastLogin"));
       return;
     }
     setStarting(true);
     try {
       const res = await checkoutFn({ data: { provider: chosen.id, plan: "pro" } });
-      toast.success(`جارٍ تحويلك إلى ${chosen.displayName}…`);
+      toast.success(t("pr.toastRedirect",{name:chosen.displayName}));
       window.location.href = res.url;
     } catch (e) {
       setStarting(false);
-      toast.error((e as Error).message || "تعذّر بدء عملية الدفع.");
+      toast.error((e as Error).message || t("pr.toastFail"));
     }
   };
 
@@ -101,71 +96,73 @@ function Pricing() {
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <Link to="/" className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-brand text-base leading-none font-extrabold text-primary-foreground">
-              دف
+              {t("brand.mark")}
             </div>
             <div className="leading-none">
-              <div className="text-[15px] font-extrabold tracking-tight">دفتر</div>
-              <div className="mt-0.5 text-[10px] text-muted-foreground">الخطط والاشتراك</div>
+              <div className="text-[15px] font-extrabold tracking-tight">{t("brand.name")}</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">{t("pr.sub")}</div>
             </div>
           </Link>
-          <Link
-            to="/dashboard"
-            className="rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold ring-1 ring-black/5"
-          >
-            العودة للوحة
-          </Link>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <Link
+              to="/dashboard"
+              className="rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold ring-1 ring-black/5"
+            >
+              {t("pr.back")}
+            </Link>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 pt-8 pb-16">
         <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-balance">
-          اختر الخطة المناسبة لحجم فواتيرك
+          {t("pr.title")}
         </h1>
         <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-          جرّب مجانًا بدون حساب، أو أنشئ حسابًا مجانيًا، وارتقِ إلى Pro لحفظ فواتيرك وأرشفتها
-          شهريًا.
+          {t("pr.lead")}
         </p>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-surface p-4 ring-1 ring-black/5">
             <div className="text-[13px] font-extrabold">Guest</div>
-            <div className="mt-1 text-[20px] font-extrabold">مجانًا</div>
+            <div className="mt-1 text-[20px] font-extrabold">{t("pr.free")}</div>
             <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-              <li>• فاتورتان للتجربة</li>
-              <li>• بدون حفظ دائم</li>
-              <li>• تحليل AI وتصدير</li>
+              <li>• {t("pr.guest.f1")}</li>
+              <li>• {t("pr.guest.f2")}</li>
+              <li>• {t("pr.guest.f3")}</li>
             </ul>
           </div>
           <div className="rounded-2xl bg-surface p-4 ring-1 ring-black/5">
             <div className="text-[13px] font-extrabold">Free</div>
-            <div className="mt-1 text-[20px] font-extrabold">مجانًا</div>
+            <div className="mt-1 text-[20px] font-extrabold">{t("pr.free")}</div>
             <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-              <li>• {freePlan?.invoiceLimit ?? 5} فواتير شهريًا</li>
-              <li>• يتجدّد الرصيد كل شهر</li>
-              <li>• بدون حفظ دائم للفواتير</li>
+              <li>• {t("pr.free.f1",{n:freePlan?.invoiceLimit ?? 5})}</li>
+              <li>• {t("pr.free.f2")}</li>
+              <li>• {t("pr.free.f3")}</li>
             </ul>
           </div>
           <div className="rounded-2xl bg-ink p-4 text-ink-foreground ring-1 ring-black/5">
             <div className="text-[13px] font-extrabold">Pro</div>
             <div className="mt-1 text-[20px] font-extrabold">
-              {money(proPlan)} <span className="text-[12px] font-bold opacity-70">/ شهر</span>
+              {money(proPlan)} <span className="text-[12px] font-bold opacity-70">{t("pr.perMonth")}</span>
             </div>
             <ul className="mt-2 space-y-1 text-[11px] opacity-80">
-              <li>• {proPlan?.invoiceLimit ?? 1000} فاتورة شهريًا</li>
-              <li>• حفظ وأرشفة شهرية</li>
-              <li>• كل المزايا</li>
+              <li>• {t("pr.pro.f1",{n:proPlan?.invoiceLimit ?? 1000})}</li>
+              <li>• {t("pr.pro.f2")}</li>
+              <li>• {t("pr.pro.f3")}</li>
             </ul>
           </div>
         </div>
 
         <section className="mt-6 overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
           <div className="bg-ink p-5 text-ink-foreground">
-            <div className="text-[11px] opacity-70">الخطة الاحترافية</div>
+            <div className="text-[11px] opacity-70">{t("pr.section")}</div>
             <div className="mt-1 text-[32px] leading-none font-extrabold tracking-tight">
-              {money(proPlan)} <span className="text-[15px] font-bold opacity-70">/ شهر</span>
+              {money(proPlan)} <span className="text-[15px] font-bold opacity-70">{t("pr.perMonth")}</span>
             </div>
             <div className="mt-1.5 text-[11px] opacity-70">
-              {proPlan?.invoiceLimit ?? 1000} فاتورة شهريًا · حفظ وأرشفة · إلغاء في أي وقت
+              {t("pr.sectionNote",{n:proPlan?.invoiceLimit ?? 1000})}
             </div>
           </div>
           <ul className="space-y-2 p-4">
@@ -179,15 +176,15 @@ function Pricing() {
           <div className="p-4 pt-0">
             {isPro ? (
               <div className="rounded-xl bg-brand-soft/50 p-3 text-center text-[13px] font-bold">
-                أنت مشترك في Pro — استمتع بكامل المزايا
+                {t("pr.subscribed")}
               </div>
             ) : (
               <>
                 <div className="mb-3 rounded-xl border border-border p-3">
-                  <div className="text-[12px] font-bold">طريقة الدفع</div>
+                  <div className="text-[12px] font-bold">{t("pr.payMethod")}</div>
                   {providers.length === 0 ? (
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      لا توجد بوابة دفع مفعّلة حاليًا — تواصل معنا لإتمام الاشتراك.
+                      {t("pr.noGateway")}
                     </p>
                   ) : (
                     <div className="mt-2 space-y-1.5">
@@ -202,7 +199,7 @@ function Pricing() {
                           <span className="font-semibold">{pr.displayName}</span>
                           {!pr.recurring && (
                             <span className="text-[10px] text-muted-foreground">
-                              (دفع لدورة واحدة — بدون تجديد تلقائي)
+                              {t("pr.oneTime")}
                             </span>
                           )}
                         </label>
@@ -216,17 +213,17 @@ function Pricing() {
                   disabled={providers.length === 0 || starting}
                   className="w-full rounded-xl bg-brand py-3.5 text-[14px] font-extrabold text-primary-foreground disabled:opacity-50"
                 >
-                  {starting ? "جارٍ التحويل…" : `اشترك الآن — ${money(proPlan)}/شهر`}
+                  {starting ? t("pr.redirecting") : t("pr.subscribe",{price:money(proPlan)})}
                 </button>
               </>
             )}
             {usage && usage.kind === "guest" && (
               <p className="mt-2 text-center text-[11px] text-muted-foreground">
-                ليس لديك حساب؟{" "}
+                {t("pr.noAccount")}{" "}
                 <Link to="/signup" className="font-bold text-brand">
-                  أنشئ حسابًا مجانيًا
+                  {t("pr.freeSignupLink")}
                 </Link>{" "}
-                واحصل على {freePlan?.invoiceLimit ?? 5} فواتير شهريًا.
+                {t("pr.freeSignupNote",{n:freePlan?.invoiceLimit ?? 5})}
               </p>
             )}
           </div>
