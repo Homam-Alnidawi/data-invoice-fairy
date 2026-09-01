@@ -469,7 +469,7 @@ async function handle(request: Request, providerParam: string) {
       }
     }
 
-    await finish("processed", userId, `dbg:${evt.lifecycle}`);
+    await finish("processed", userId);
 
     await supabaseAdmin.from("activity_logs").insert({
       user_id: userId,
