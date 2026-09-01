@@ -98,6 +98,7 @@ export const listPublicPlans = createServerFn({ method: "GET" }).handler(
 
 export type MySubscription = {
   plan: string;
+  planName: string;
   status: string;
   billingType: string;
   paymentProvider: string | null;
@@ -105,6 +106,10 @@ export type MySubscription = {
   end: string | null;
   invoiceLimit: number;
   invoiceUsed: number;
+  cancelAtPeriodEnd: boolean;
+  /** عملة الاشتراك (من الباقة) — مستقلة تمامًا عن عملة الفواتير. */
+  planCurrency: string;
+  planPriceCents: number;
 };
 
 export const getMySubscription = createServerFn({ method: "GET" }).handler(
@@ -118,6 +123,7 @@ export const getMySubscription = createServerFn({ method: "GET" }).handler(
       _user_id: user.id,
       ...(user.email ? { _email: user.email } : {}),
     });
+    await db.rpc("sync_profile_subscription", { _user_id: user.id } as never);
     const { data } = await db
       .from("profiles")
       .select(
@@ -126,8 +132,28 @@ export const getMySubscription = createServerFn({ method: "GET" }).handler(
       .eq("id", user.id)
       .maybeSingle();
     if (!data) return null;
+
+    const { data: planRow } = await db
+      .from("plans")
+      .select("name, currency, price_cents")
+      .eq("code", data.plan)
+      .maybeSingle();
+
+    const { data: sub } = await db
+      .from("subscriptions")
+      .select("metadata, cancelled_at, status")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const meta = (sub as { metadata?: Record<string, unknown> } | null)?.metadata ?? {};
+    const cancelAtPeriodEnd =
+      meta["cancel_at_period_end"] === true &&
+      (sub as { status?: string } | null)?.status === "active";
+
     return {
       plan: data.plan,
+      planName: (planRow as { name?: string } | null)?.name ?? data.plan,
       status: data.subscription_status,
       billingType: (data as { billing_type: string }).billing_type,
       paymentProvider: (data as { payment_provider: string | null }).payment_provider,
@@ -135,9 +161,94 @@ export const getMySubscription = createServerFn({ method: "GET" }).handler(
       end: (data as { subscription_end: string | null }).subscription_end,
       invoiceLimit: data.monthly_invoice_limit,
       invoiceUsed: data.monthly_invoice_usage,
+      cancelAtPeriodEnd,
+      planCurrency: (planRow as { currency?: string } | null)?.currency ?? "USD",
+      planPriceCents: (planRow as { price_cents?: number } | null)?.price_cents ?? 0,
     };
   },
 );
+
+/* ------------------------------------------------------------------ */
+/* User: cancel at period end / reactivate                             */
+/* ------------------------------------------------------------------ */
+
+async function myLatestSubscription() {
+  const { currentUser, admin } = await import("./usage.server");
+  const user = await currentUser();
+  if (!user) throw new Error("يجب تسجيل الدخول.");
+  const db = await admin();
+  const { data } = await db
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { user, db, sub: data as Record<string, unknown> | null };
+}
+
+/**
+ * إلغاء التجديد التلقائي — لا يحذف الحساب ولا الفواتير،
+ * ويبقى المستخدم على باقته حتى نهاية الفترة المدفوعة.
+ */
+export const cancelMySubscription = createServerFn({ method: "POST" }).handler(async () => {
+  const { user, db, sub } = await myLatestSubscription();
+  if (!sub || sub["status"] !== "active" || sub["billing_type"] === "free") {
+    throw new Error("لا يوجد اشتراك نشط لإلغائه.");
+  }
+  const end = sub["subscription_end"] as string | null;
+  const meta = { ...((sub["metadata"] as Record<string, unknown>) ?? {}), cancel_at_period_end: true };
+
+  if (!end || new Date(end).getTime() <= Date.now()) {
+    // لا توجد فترة مدفوعة متبقية — ينتهي فورًا
+    const { error } = await db.rpc("revoke_subscription", {
+      _user_id: user.id,
+      _reason: "user_cancelled",
+    } as never);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await db
+      .from("subscriptions")
+      .update({ cancelled_at: new Date().toISOString(), metadata: meta as never } as never)
+      .eq("id", sub["id"] as string);
+    if (error) throw new Error(error.message);
+  }
+
+  await db.from("activity_logs").insert({
+    user_id: user.id,
+    action: "subscription_cancel_requested",
+    detail: end ?? null,
+  });
+
+  return { ok: true, activeUntil: end };
+});
+
+/** التراجع عن طلب الإلغاء ما دامت الفترة المدفوعة لم تنتهِ. */
+export const reactivateMySubscription = createServerFn({ method: "POST" }).handler(async () => {
+  const { user, db, sub } = await myLatestSubscription();
+  if (!sub || sub["status"] !== "active") throw new Error("لا يمكن إعادة التفعيل — الاشتراك منتهٍ.");
+  const end = sub["subscription_end"] as string | null;
+  if (end && new Date(end).getTime() <= Date.now()) {
+    throw new Error("انتهت الفترة المدفوعة — يلزم تجديد الاشتراك.");
+  }
+  const meta = {
+    ...((sub["metadata"] as Record<string, unknown>) ?? {}),
+    cancel_at_period_end: false,
+  };
+  const { error } = await db
+    .from("subscriptions")
+    .update({ cancelled_at: null, metadata: meta as never } as never)
+    .eq("id", sub["id"] as string);
+  if (error) throw new Error(error.message);
+
+  await db.from("activity_logs").insert({
+    user_id: user.id,
+    action: "subscription_reactivated",
+  });
+
+  return { ok: true };
+});
+
 
 /* ------------------------------------------------------------------ */
 /* Admin: plans management                                             */
