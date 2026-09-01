@@ -109,8 +109,6 @@ function AdminLayout() {
       })}
       <button
         onClick={() => void signOut()}
-      <button
-        onClick={() => void signOut()}
         className="mt-auto flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10"
       >
         <LogOut className="size-4" />
