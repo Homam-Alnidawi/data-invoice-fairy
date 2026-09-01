@@ -16,7 +16,7 @@ export const LANGS: { code: Lang; label: string }[] = [
   { code: "tr", label: "Türkçe" },
 ];
 
-export const dirOf = (_lang: Lang) => "rtl";
+export const dirOf = (_lang: Lang): "rtl" | "ltr" => "rtl";
 
 const STORAGE_KEY = "daftar.lang";
 
