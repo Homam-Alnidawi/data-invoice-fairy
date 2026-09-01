@@ -21,6 +21,7 @@ import { Route as AdminPaymentsRouteImport } from './routes/admin/payments'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminStatisticsRouteImport } from './routes/admin/statistics'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as ArchiveMonthRouteImport } from './routes/archive.$month'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin/users_.$userId'
 import { Route as ApiPublicWebhooksPaymentsProviderRouteImport } from './routes/api/public/webhooks/payments.$provider'
 
@@ -84,6 +85,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const ArchiveMonthRoute = ArchiveMonthRouteImport.update({
+  id: '/archive/$month',
+  path: '/archive/$month',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
   id: '/users_/$userId',
   path: '/users/$userId',
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/statistics': typeof AdminStatisticsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/archive/$month': typeof ArchiveMonthRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/api/public/webhooks/payments/$provider': typeof ApiPublicWebhooksPaymentsProviderRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/statistics': typeof AdminStatisticsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/archive/$month': typeof ArchiveMonthRoute
   '/admin': typeof AdminIndexRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/api/public/webhooks/payments/$provider': typeof ApiPublicWebhooksPaymentsProviderRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/statistics': typeof AdminStatisticsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/archive/$month': typeof ArchiveMonthRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/users_/$userId': typeof AdminUsersUserIdRoute
   '/api/public/webhooks/payments/$provider': typeof ApiPublicWebhooksPaymentsProviderRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/statistics'
     | '/admin/users'
+    | '/archive/$month'
     | '/admin/'
     | '/admin/users/$userId'
     | '/api/public/webhooks/payments/$provider'
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/statistics'
     | '/admin/users'
+    | '/archive/$month'
     | '/admin'
     | '/admin/users/$userId'
     | '/api/public/webhooks/payments/$provider'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/statistics'
     | '/admin/users'
+    | '/archive/$month'
     | '/admin/'
     | '/admin/users_/$userId'
     | '/api/public/webhooks/payments/$provider'
@@ -202,6 +214,7 @@ export interface RootRouteChildren {
   PricingRoute: typeof PricingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  ArchiveMonthRoute: typeof ArchiveMonthRoute
   ApiPublicWebhooksPaymentsProviderRoute: typeof ApiPublicWebhooksPaymentsProviderRoute
 }
 
@@ -291,6 +304,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/archive/$month': {
+      id: '/archive/$month'
+      path: '/archive/$month'
+      fullPath: '/archive/$month'
+      preLoaderRoute: typeof ArchiveMonthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/users_/$userId': {
       id: '/admin/users_/$userId'
       path: '/users/$userId'
@@ -338,6 +358,7 @@ const rootRouteChildren: RootRouteChildren = {
   PricingRoute: PricingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  ArchiveMonthRoute: ArchiveMonthRoute,
   ApiPublicWebhooksPaymentsProviderRoute:
     ApiPublicWebhooksPaymentsProviderRoute,
 }
