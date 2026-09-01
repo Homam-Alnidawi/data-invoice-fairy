@@ -22,6 +22,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminStatisticsRouteImport } from './routes/admin/statistics'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin/users_.$userId'
+import { Route as ApiPublicTmpPaytestRouteImport } from './routes/api/public/tmp-paytest'
 import { Route as ApiPublicWebhooksPaymentsProviderRouteImport } from './routes/api/public/webhooks/payments.$provider'
 
 const IndexRoute = IndexRouteImport.update({
@@ -89,6 +90,11 @@ const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
   path: '/users/$userId',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const ApiPublicTmpPaytestRoute = ApiPublicTmpPaytestRouteImport.update({
+  id: '/api/public/tmp-paytest',
+  path: '/api/public/tmp-paytest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWebhooksPaymentsProviderRoute =
   ApiPublicWebhooksPaymentsProviderRouteImport.update({
     id: '/api/public/webhooks/payments/$provider',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/api/public/tmp-paytest': typeof ApiPublicTmpPaytestRoute
   '/api/public/webhooks/payments/$provider': typeof ApiPublicWebhooksPaymentsProviderRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/admin': typeof AdminIndexRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/api/public/tmp-paytest': typeof ApiPublicTmpPaytestRoute
   '/api/public/webhooks/payments/$provider': typeof ApiPublicWebhooksPaymentsProviderRoute
 }
 export interface FileRoutesById {
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/users_/$userId': typeof AdminUsersUserIdRoute
+  '/api/public/tmp-paytest': typeof ApiPublicTmpPaytestRoute
   '/api/public/webhooks/payments/$provider': typeof ApiPublicWebhooksPaymentsProviderRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/'
     | '/admin/users/$userId'
+    | '/api/public/tmp-paytest'
     | '/api/public/webhooks/payments/$provider'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin'
     | '/admin/users/$userId'
+    | '/api/public/tmp-paytest'
     | '/api/public/webhooks/payments/$provider'
   id:
     | '__root__'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/'
     | '/admin/users_/$userId'
+    | '/api/public/tmp-paytest'
     | '/api/public/webhooks/payments/$provider'
   fileRoutesById: FileRoutesById
 }
@@ -202,6 +214,7 @@ export interface RootRouteChildren {
   PricingRoute: typeof PricingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  ApiPublicTmpPaytestRoute: typeof ApiPublicTmpPaytestRoute
   ApiPublicWebhooksPaymentsProviderRoute: typeof ApiPublicWebhooksPaymentsProviderRoute
 }
 
@@ -298,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersUserIdRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/api/public/tmp-paytest': {
+      id: '/api/public/tmp-paytest'
+      path: '/api/public/tmp-paytest'
+      fullPath: '/api/public/tmp-paytest'
+      preLoaderRoute: typeof ApiPublicTmpPaytestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/payments/$provider': {
       id: '/api/public/webhooks/payments/$provider'
       path: '/api/public/webhooks/payments/$provider'
@@ -338,6 +358,7 @@ const rootRouteChildren: RootRouteChildren = {
   PricingRoute: PricingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  ApiPublicTmpPaytestRoute: ApiPublicTmpPaytestRoute,
   ApiPublicWebhooksPaymentsProviderRoute:
     ApiPublicWebhooksPaymentsProviderRoute,
 }

@@ -254,6 +254,7 @@ export type Database = {
           last_tested_at: string | null
           provider: string
           status: string
+          test_results: Json
           updated_at: string
         }
         Insert: {
@@ -267,6 +268,7 @@ export type Database = {
           last_tested_at?: string | null
           provider: string
           status?: string
+          test_results?: Json
           updated_at?: string
         }
         Update: {
@@ -280,7 +282,65 @@ export type Database = {
           last_tested_at?: string | null
           provider?: string
           status?: string
+          test_results?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_transactions: {
+        Row: {
+          amount_cents: number
+          checkout_url: string | null
+          created_at: string
+          currency: string
+          environment: string
+          id: string
+          merchant_oid: string
+          metadata: Json
+          paid_at: string | null
+          plan: string
+          provider: string
+          provider_reference: string | null
+          status: string
+          subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents?: number
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          environment: string
+          id?: string
+          merchant_oid: string
+          metadata?: Json
+          paid_at?: string | null
+          plan?: string
+          provider: string
+          provider_reference?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          environment?: string
+          id?: string
+          merchant_oid?: string
+          metadata?: Json
+          paid_at?: string | null
+          plan?: string
+          provider?: string
+          provider_reference?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -631,6 +691,15 @@ export type Database = {
       refund_invoice_quota: { Args: { _user_id: string }; Returns: undefined }
       revoke_subscription: {
         Args: { _reason?: string; _user_id: string }
+        Returns: undefined
+      }
+      set_subscription_status: {
+        Args: {
+          _end?: string
+          _reason?: string
+          _status: string
+          _user_id: string
+        }
         Returns: undefined
       }
       sync_profile_subscription: {

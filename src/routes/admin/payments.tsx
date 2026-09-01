@@ -79,6 +79,8 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
 
   const [open, setOpen] = useState(false);
   const [env, setEnv] = useState(p.environment);
+  const ev = p.environmentViews.find((e) => e.value === env) ?? p.environmentViews[0]!;
+  const cur = p.environmentViews.find((e) => e.value === p.environment) ?? ev;
   const [values, setValues] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
 
@@ -115,7 +117,7 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
   });
 
   const test = useMutation({
-    mutationFn: () => testFn({ data: { provider: p.id } }),
+    mutationFn: () => testFn({ data: { provider: p.id, environment: env } }),
     onSuccess: (r) => {
       if (!r.supported) toast.info(r.message);
       else if (r.ok) toast.success("Connection successful ✓");
@@ -151,7 +153,7 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
           </button>
           <button
             onClick={() => test.mutate()}
-            disabled={test.isPending || !p.complete}
+            disabled={test.isPending || !ev.complete || !p.supportsConnectionTest}
             className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-bold disabled:opacity-50"
           >
             Test Connection
@@ -167,8 +169,8 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
           ) : (
             <button
               onClick={() => toggle.mutate(true)}
-              disabled={toggle.isPending || !p.complete}
-              title={p.complete ? "" : "أكمل الإعدادات المطلوبة أولًا"}
+              disabled={toggle.isPending || !cur.canEnable}
+              title={cur.canEnable ? "" : (cur.enableBlockedReason ?? "")}
               className="rounded-lg bg-foreground px-3 py-1.5 text-[12px] font-bold text-background disabled:opacity-50"
             >
               Enable
@@ -187,9 +189,56 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
         </p>
       )}
 
-      {/* حالة الحقول */}
+      {/* ملخص الحالة */}
+      <div className="mt-3 grid gap-1 rounded-lg border border-border p-2 text-[11px] sm:grid-cols-3">
+        <div>
+          <span className="text-muted-foreground">Environment: </span>
+          <span className="font-bold">{ev.label}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Configured: </span>
+          <span className={`font-bold ${ev.complete ? "text-emerald-700" : "text-muted-foreground"}`}>
+            {ev.complete ? "✓" : "✗"}
+          </span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Connection Test: </span>
+          <span
+            className={`font-bold ${
+              ev.testStatus === "passed"
+                ? "text-emerald-700"
+                : ev.testStatus === "failed"
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+            }`}
+          >
+            {ev.testStatus === "passed"
+              ? "✓ Passed"
+              : ev.testStatus === "failed"
+                ? "✗ Failed"
+                : ev.testStatus === "unsupported"
+                  ? "Not supported"
+                  : "Not tested"}
+          </span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Last Tested: </span>
+          <span className="font-bold" dir="ltr">
+            {ev.lastTestedAt ? new Date(ev.lastTestedAt).toLocaleString("en-GB") : "—"}
+          </span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Enabled: </span>
+          <span className="font-bold">{p.enabled ? "✓" : "✗"}</span>
+        </div>
+        {!ev.canEnable && (
+          <div className="text-muted-foreground sm:col-span-3">{ev.enableBlockedReason}</div>
+        )}
+      </div>
+
+      {/* حالة الحقول للبيئة المختارة */}
       <div className="mt-3 grid gap-1 sm:grid-cols-2">
-        {p.fields.map((f) => (
+        {ev.fields.map((f) => (
           <div key={f.key} className="flex items-center justify-between rounded-lg bg-muted/50 px-2 py-1.5">
             <span className="text-[11px] font-semibold">{f.label}</span>
             <span
@@ -243,7 +292,10 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
             <span className="text-muted-foreground">Environment</span>
             <select
               value={env}
-              onChange={(e) => setEnv(e.target.value)}
+              onChange={(e) => {
+                setEnv(e.target.value);
+                setValues({});
+              }}
               className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
             >
               {p.environments.map((e) => (
@@ -254,7 +306,7 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
             </select>
           </label>
 
-          {p.fields.map((f) => (
+          {ev.fields.map((f) => (
             <label key={f.key} className="block text-[11px]">
               <span className="text-muted-foreground">
                 {f.label}
