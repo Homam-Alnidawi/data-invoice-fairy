@@ -12,16 +12,6 @@ import {
 import { getUsageState, type UsageState } from "@/lib/usage.functions";
 import { trackActivity } from "@/lib/activity.functions";
 import { amIAdmin } from "@/lib/admin.functions";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -1063,40 +1053,6 @@ function Index() {
           onSave={(next) => saveReview(reviewJob.id, next)}
         />
       )}
-
-      <AlertDialog
-        open={deleteConfirm.open}
-        onOpenChange={(open) => setDeleteConfirm((prev) => ({ ...prev, open }))}
-      >
-        <AlertDialogContent dir="rtl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>حذف الفاتورة من الأرشيف</AlertDialogTitle>
-            <AlertDialogDescription>
-              هل أنت متأكد أنك تريد حذف{" "}
-              <span className="font-bold text-foreground">
-                {deleteConfirm.job?.fileName ?? "هذه الفاتورة"}
-              </span>
-              ؟ لا يمكن التراجع عن هذا الإجراء، ولن يُعاد الرصيد المستهلك.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-2">
-            <AlertDialogCancel onClick={() => setDeleteConfirm({ open: false, job: null })}>
-              إلغاء
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (deleteConfirm.job) {
-                  removeJob(deleteConfirm.job.id);
-                }
-                setDeleteConfirm({ open: false, job: null });
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              نعم، احذف
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {upgradeOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
