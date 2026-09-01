@@ -30,8 +30,16 @@ function Card({ label, value, hint }: { label: string; value: number | string; h
 function AdminHome() {
   const fn = useServerFn(adminOverview);
   const subFn = useServerFn(adminSubscriptionStats);
-  const { data, isLoading, error } = useQuery({ queryKey: ["admin-overview"], queryFn: () => fn() });
-  const subs = useQuery({ queryKey: ["admin-sub-stats"], queryFn: () => subFn() });
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-overview"],
+    queryFn: () => fn(),
+    retry: false,
+  });
+  const subs = useQuery({
+    queryKey: ["admin-sub-stats"],
+    queryFn: () => subFn(),
+    retry: false,
+  });
 
   if (isLoading) return <div className="text-sm text-muted-foreground">جارٍ التحميل…</div>;
   if (error || !data)
