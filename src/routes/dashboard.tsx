@@ -607,7 +607,7 @@ function Index() {
             ) : (
               usage && (
                 <Link
-                  to="/pricing"
+                  to="/settings"
                   className="shrink-0 rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold text-ink-foreground"
                 >
                   إدارة الاشتراك
