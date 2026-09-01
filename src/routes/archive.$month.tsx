@@ -261,19 +261,23 @@ function ArchiveMonthPage() {
                     {g.invoices.map((r) => (
                       <div
                         key={r.id}
-                        className="flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-right last:border-0"
+                        className="flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2 text-right last:border-0"
                       >
-                        <div className="min-w-0 flex-1 truncate text-[12px]">
-                          {r.invoice_number?.trim() || r.file_name}
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · {r.invoice_date?.trim() || "بدون تاريخ"}
-                          </span>
-                          <span className="mr-2 text-[12px] font-bold tabular-nums">
-                            {nf.format(Number(r.total) || 0)}
-                            <span className="mr-1 text-[10px] text-muted-foreground">
-                              {currencySymbol(r.currency)}
-                            </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[12px] font-bold">
+                            {r.invoice_number?.trim() || r.file_name}
+                          </div>
+                          <div dir="ltr" className="mt-0.5 text-left text-[10px] text-muted-foreground tabular-nums">
+                            {r.invoice_date?.trim() || "بدون تاريخ"}
+                          </div>
+                        </div>
+                        <div
+                          dir="ltr"
+                          className="shrink-0 text-[13px] font-extrabold text-brand tabular-nums"
+                        >
+                          {nf.format(Number(r.total) || 0)}
+                          <span className="ml-1 text-[10px] font-semibold text-muted-foreground">
+                            {currencySymbol(r.currency)}
                           </span>
                         </div>
                         <button
