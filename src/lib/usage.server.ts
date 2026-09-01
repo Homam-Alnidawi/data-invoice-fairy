@@ -12,7 +12,12 @@ export type PlanState = {
   currentPeriodEnd: string | null;
 };
 
+export function publicClient() {
+  return publishableClient();
+}
+
 function publishableClient() {
+
   const url = process.env["SUPABASE_URL"]!;
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
   return createClient<Database>(url, key, {
