@@ -1,45 +1,39 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createHmac, timingSafeEqual } from "crypto";
 
 /**
- * نقطة استقبال Webhooks من بوابات الدفع (PayTR / Paddle / Stripe).
+ * استقبال إشعارات الدفع (Webhook / Callback) من بوابات الدفع.
  *
- * التدفق الآمن:
- *   1) التحقق من المزوّد
- *   2) التحقق من التوقيع (HMAC) باستخدام السر المخزّن في الخادم فقط
- *   3) التحقق من نوع الحدث
- *   4) التحقق من معرّف الاشتراك/العملية
- *   5) منع تكرار معالجة نفس الحدث (payment_events unique)
- *   6) تحديث الاشتراك عبر apply_subscription
- *   7) تسجيل العملية
- *   8) إرجاع 200
- *
- * لا توجد مفاتيح أو بيانات دفع وهمية هنا: إن لم يُضبط سر المزوّد يُرفض الطلب.
+ * الأسرار تُقرأ من مخزن الأسرار المشفّر (Admin → Settings → Payment Providers)
+ * ولا توجد أي بيانات اعتماد داخل الكود. إن لم يكن المزوّد مُعدًّا ومفعّلًا
+ * يُرفض الطلب. لا تُسجَّل أي قيمة سرّية في أي مكان.
  */
 
-const PROVIDERS = ["paytr", "paddle", "stripe"] as const;
+const PROVIDERS = ["paytr", "paddle", "zaincash"] as const;
 type Provider = (typeof PROVIDERS)[number];
 
-const SECRET_ENV: Record<Provider, string> = {
-  paytr: "PAYTR_WEBHOOK_SECRET",
-  paddle: "PADDLE_WEBHOOK_SECRET",
-  stripe: "STRIPE_WEBHOOK_SECRET",
-};
+async function hmacHex(key: string, message: string) {
+  const k = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(message)));
+  return [...sig].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
-const SIGNATURE_HEADER: Record<Provider, string> = {
-  paytr: "x-paytr-signature",
-  paddle: "paddle-signature",
-  stripe: "stripe-signature",
-};
+async function hmacBase64(key: string, message: string) {
+  const hex = await hmacHex(key, message);
+  const bytes = new Uint8Array(hex.match(/../g)!.map((h) => parseInt(h, 16)));
+  return btoa(String.fromCharCode(...bytes));
+}
 
-function verify(secret: string, body: string, header: string | null): boolean {
-  if (!header) return false;
-  // نأخذ آخر جزء سداسي عشري من ترويسة التوقيع (يغطي صيغ Stripe/Paddle الشائعة)
-  const candidate = (header.match(/[a-f0-9]{32,}/gi) ?? [header]).pop()!;
-  const expected = createHmac("sha256", secret).update(body).digest("hex");
-  const a = Buffer.from(candidate.toLowerCase());
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+function safeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 type Normalized = {
@@ -52,90 +46,135 @@ type Normalized = {
   cancel: boolean;
 };
 
-/** يحوّل حمولات المزوّدين إلى شكل موحّد. يُوسَّع عند ربط كل مزوّد فعليًا. */
-function normalize(provider: Provider, payload: Record<string, unknown>): Normalized | null {
-  const get = (path: string): unknown =>
-    path.split(".").reduce<unknown>((acc, k) => (acc as Record<string, unknown>)?.[k], payload);
-
-  const eventId = String(get("id") ?? get("event_id") ?? get("merchant_oid") ?? "");
-  if (!eventId) return null;
-
-  const eventType = String(get("type") ?? get("event_type") ?? get("status") ?? "unknown");
-  const meta = (get("data.object.metadata") ?? get("data.custom_data") ?? get("metadata") ?? {}) as
-    | Record<string, unknown>
-    | undefined;
-
-  const userId = (meta?.["user_id"] as string | undefined) ?? null;
-  const plan = (meta?.["plan"] as string | undefined) ?? "pro";
-  const providerSubscriptionId =
-    (get("data.object.subscription") as string | undefined) ??
-    (get("data.subscription_id") as string | undefined) ??
-    (get("merchant_oid") as string | undefined) ??
-    null;
-
-  const cancel = /cancel|refund|failed|deleted|expired/i.test(eventType);
-  const rawEnd =
-    (get("data.object.current_period_end") as number | string | undefined) ??
-    (get("data.next_billed_at") as string | undefined) ??
-    null;
-  const periodEnd =
-    typeof rawEnd === "number"
-      ? new Date(rawEnd * 1000).toISOString()
-      : typeof rawEnd === "string"
-        ? new Date(rawEnd).toISOString()
-        : null;
-
-  void provider;
-  return { eventId, eventType, userId, plan, providerSubscriptionId, periodEnd, cancel };
-}
-
 export const Route = createFileRoute("/api/public/webhooks/payments/$provider")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
         const provider = params.provider as Provider;
-        if (!PROVIDERS.includes(provider)) {
-          return new Response("Unknown provider", { status: 404 });
-        }
+        if (!PROVIDERS.includes(provider)) return new Response("Unknown provider", { status: 404 });
 
-        const secret = process.env[SECRET_ENV[provider]];
-        if (!secret) {
-          // المزوّد غير مُفعَّل بعد — لا نقبل أي تفعيل بدون سر حقيقي
-          return new Response("Provider not configured", { status: 503 });
-        }
+        const store = await import("@/lib/payment-providers.server");
+        const def = store.getProviderDef(provider)!;
+        const row = await store.readSettings(provider);
+        if (!row?.enabled) return new Response("Provider not configured", { status: 503 });
+        const environment = row.environment ?? def.environments[0]!.value;
 
         const body = await request.text();
-        if (!verify(secret, body, request.headers.get(SIGNATURE_HEADER[provider]))) {
-          return new Response("Invalid signature", { status: 401 });
+        let evt: Normalized | null = null;
+        let rawPayload: Record<string, unknown> = {};
+
+        /* ---------------- PayTR callback ---------------- */
+        if (provider === "paytr") {
+          const key = await store.getSecret(provider, environment, "merchant_key");
+          const salt = await store.getSecret(provider, environment, "merchant_salt");
+          if (!key || !salt) return new Response("Provider not configured", { status: 503 });
+
+          const form = new URLSearchParams(body);
+          const oid = form.get("merchant_oid") ?? "";
+          const status = form.get("status") ?? "";
+          const total = form.get("total_amount") ?? "";
+          const hash = form.get("hash") ?? "";
+          const expected = await hmacBase64(key, `${oid}${salt}${status}${total}`);
+          if (!oid || !safeEqual(hash, expected)) {
+            return new Response("PAYTR notification failed: bad hash", { status: 401 });
+          }
+          rawPayload = Object.fromEntries(form.entries());
+          const meta = String(form.get("merchant_oid") ?? "");
+          evt = {
+            eventId: oid,
+            eventType: `paytr.${status}`,
+            // نمرّر user_id داخل merchant_oid بصيغة: <uuid-بلا-شرطات><طابع زمني>
+            userId: decodeUserFromOid(meta),
+            plan: "pro",
+            providerSubscriptionId: oid,
+            periodEnd: monthFromNow(),
+            cancel: status !== "success",
+          };
         }
 
-        let payload: Record<string, unknown>;
-        try {
-          payload = JSON.parse(body) as Record<string, unknown>;
-        } catch {
-          return new Response("Invalid payload", { status: 400 });
+        /* ---------------- Paddle webhook ---------------- */
+        if (provider === "paddle") {
+          const secret = await store.getSecret(provider, environment, "webhook_secret");
+          if (!secret) return new Response("Provider not configured", { status: 503 });
+          const header = request.headers.get("paddle-signature") ?? "";
+          const ts = /ts=([^;]+)/.exec(header)?.[1];
+          const h1 = /h1=([^;]+)/.exec(header)?.[1];
+          if (!ts || !h1) return new Response("Invalid signature", { status: 401 });
+          const expected = await hmacHex(secret, `${ts}:${body}`);
+          if (!safeEqual(h1.toLowerCase(), expected)) {
+            return new Response("Invalid signature", { status: 401 });
+          }
+          const payload = JSON.parse(body) as Record<string, unknown>;
+          rawPayload = payload;
+          const d = (payload["data"] ?? {}) as Record<string, unknown>;
+          const custom = (d["custom_data"] ?? {}) as Record<string, unknown>;
+          const type = String(payload["event_type"] ?? "unknown");
+          evt = {
+            eventId: String(payload["event_id"] ?? ""),
+            eventType: type,
+            userId: (custom["user_id"] as string | undefined) ?? null,
+            plan: (custom["plan"] as string | undefined) ?? "pro",
+            providerSubscriptionId: (d["id"] as string | undefined) ?? null,
+            periodEnd: d["next_billed_at"]
+              ? new Date(String(d["next_billed_at"])).toISOString()
+              : monthFromNow(),
+            cancel: /cancel|paused|past_due|expired/i.test(type),
+          };
         }
 
-        const evt = normalize(provider, payload);
-        if (!evt) return new Response("Unrecognized event", { status: 400 });
+        /* ---------------- Zain Cash callback ---------------- */
+        if (provider === "zaincash") {
+          const secret = await store.getSecret(provider, environment, "api_secret");
+          if (!secret) return new Response("Provider not configured", { status: 503 });
+          const url = new URL(request.url);
+          const token =
+            url.searchParams.get("token") ?? new URLSearchParams(body).get("token") ?? "";
+          const parts = token.split(".");
+          if (parts.length !== 3) return new Response("Invalid token", { status: 401 });
+          const expected = (await hmacBase64(secret, `${parts[0]}.${parts[1]}`))
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
+          if (!safeEqual(parts[2]!, expected)) {
+            return new Response("Invalid token", { status: 401 });
+          }
+          const claims = JSON.parse(
+            atob(parts[1]!.replace(/-/g, "+").replace(/_/g, "/")),
+          ) as Record<string, unknown>;
+          rawPayload = claims;
+          const status = String(claims["status"] ?? "");
+          evt = {
+            eventId: String(claims["id"] ?? ""),
+            eventType: `zaincash.${status}`,
+            userId: (claims["orderid"] as string | undefined)
+              ? decodeUserFromOid(String(claims["orderid"]))
+              : null,
+            plan: "pro",
+            providerSubscriptionId: String(claims["id"] ?? ""),
+            // Zain Cash لا يدعم التجديد التلقائي — دورة واحدة فقط
+            periodEnd: monthFromNow(),
+            cancel: status !== "success" && status !== "completed",
+          };
+        }
+
+        if (!evt || !evt.eventId) return new Response("Unrecognized event", { status: 400 });
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        // Idempotency: أول إدراج فقط ينجح
         const { error: dupErr } = await supabaseAdmin.from("payment_events").insert({
           provider,
           event_id: evt.eventId,
           event_type: evt.eventType,
           user_id: evt.userId,
-          payload: payload as never,
+          payload: rawPayload as never,
         });
         if (dupErr) {
-          if (dupErr.code === "23505") return new Response("ok (duplicate)", { status: 200 });
+          if (dupErr.code === "23505") return new Response("OK", { status: 200 });
           return new Response("Storage error", { status: 500 });
         }
 
         try {
-          if (!evt.userId) throw new Error("missing user_id in metadata");
+          if (!evt.userId) throw new Error("missing user reference");
 
           if (evt.cancel) {
             await supabaseAdmin.rpc("revoke_subscription", {
@@ -152,7 +191,7 @@ export const Route = createFileRoute("/api/public/webhooks/payments/$provider")(
               _provider_subscription_id: evt.providerSubscriptionId,
               _start: new Date().toISOString(),
               _end: evt.periodEnd,
-              _metadata: { event_id: evt.eventId, event_type: evt.eventType },
+              _metadata: { event_id: evt.eventId, event_type: evt.eventType, environment },
             } as never);
           }
 
@@ -168,7 +207,7 @@ export const Route = createFileRoute("/api/public/webhooks/payments/$provider")(
             detail: `${provider}:${evt.eventType}`,
           });
 
-          return new Response("ok", { status: 200 });
+          return new Response("OK", { status: 200 });
         } catch (e) {
           await supabaseAdmin
             .from("payment_events")
@@ -181,3 +220,16 @@ export const Route = createFileRoute("/api/public/webhooks/payments/$provider")(
     },
   },
 });
+
+/** معرّف الطلب يحمل معرّف المستخدم: 32 حرفًا hex ثم طابع زمني. */
+function decodeUserFromOid(oid: string): string | null {
+  const hex = oid.slice(0, 32);
+  if (!/^[0-9a-f]{32}$/i.test(hex)) return null;
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function monthFromNow() {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString();
+}
