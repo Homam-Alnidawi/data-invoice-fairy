@@ -204,10 +204,12 @@ function Index() {
   );
 
   const signOut = useCallback(async () => {
+    void trackFn({ data: { action: "logout" } }).catch(() => undefined);
     await supabase.auth.signOut();
     setJobs([]);
     void navigate({ to: "/", replace: true });
-  }, [navigate]);
+  }, [navigate, trackFn]);
+
 
   const handleFiles = useCallback(
     async (fileList: FileList | null) => {
