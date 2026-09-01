@@ -485,7 +485,7 @@ function Index() {
       toast.error(t("dash.toast.popup"));
       return;
     }
-    const invFooter = `<tr><th colspan="4">الإجمالي</th><th>${nf.format(totals.subtotal)}</th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th><th></th></tr>`;
+    const invFooter = `<tr><th colspan="4">${t("dash.grandTotal")}</th><th>${nf.format(totals.subtotal)}</th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th><th></th></tr>`;
     win.document.write(`<html dir="${lang === "ar" ? "rtl" : "ltr"}" lang="${lang}"><head><meta charset="utf-8"/>
       <title>${t("dash.pdf.title")}</title>
       <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px}th,td{border:1px solid #ccc;padding:4px;text-align:right}h1{font-size:18px}h2{font-size:14px;margin:12px 0 6px}</style>
@@ -555,22 +555,28 @@ function Index() {
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="animate-rise flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-brand text-base leading-none font-extrabold text-primary-foreground">
-              دف
+              {t("brand.mark")}
             </div>
             <div className="leading-none">
-              <div className="text-[15px] font-extrabold tracking-tight">دفتر</div>
+              <div className="text-[15px] font-extrabold tracking-tight">{t("brand.name")}</div>
               <div className="mt-0.5 text-[10px] text-muted-foreground">
-                فواتير المشتريات الذكية
+                {t("brand.tagline")}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             {usage && (
               <span className="rounded-full bg-brand-soft/60 px-2.5 py-1 text-[10px] font-bold">
-                {usage.kind === "guest" && `التجربة المجانية: ${usage.used} / ${usage.limit}`}
+                {usage.kind === "guest" &&
+                  t("dash.usage.guest", { used: usage.used, limit: usage.limit })}
                 {usage.kind === "free" &&
-                  `المتبقي هذا الشهر: ${Math.max(0, usage.limit - usage.used)} / ${usage.limit}`}
-                {usage.kind === "pro" && `المستخدمة: ${usage.used} / ${usage.limit}`}
+                  t("dash.usage.free", {
+                    left: Math.max(0, usage.limit - usage.used),
+                    limit: usage.limit,
+                  })}
+                {usage.kind === "pro" &&
+                  t("dash.usage.pro", { used: usage.used, limit: usage.limit })}
               </span>
             )}
             {usage && usage.kind !== "pro" ? (
@@ -578,7 +584,7 @@ function Index() {
                 to="/pricing"
                 className="shrink-0 rounded-full bg-brand px-2.5 py-1 text-[10px] font-bold text-primary-foreground"
               >
-                الترقية إلى Pro
+                {t("dash.upgrade")}
               </Link>
             ) : (
               usage && (
@@ -586,7 +592,7 @@ function Index() {
                   to="/settings"
                   className="shrink-0 rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold text-ink-foreground"
                 >
-                  إدارة الاشتراك
+                  {t("dash.manageSub")}
                 </Link>
               )
             )}
@@ -601,9 +607,9 @@ function Index() {
                   {user.email}
                 </button>
                 {menuOpen && (
-                  <div className="absolute left-0 z-30 mt-2 w-44 overflow-hidden rounded-xl bg-surface text-right shadow-lg ring-1 ring-black/10">
+                  <div className="absolute start-0 z-30 mt-2 w-44 overflow-hidden rounded-xl bg-surface text-start shadow-lg ring-1 ring-black/10">
                     <div className="border-b border-border px-3 py-2">
-                      <div className="text-[10px] text-muted-foreground">الحساب</div>
+                      <div className="text-[10px] text-muted-foreground">{t("dash.account")}</div>
                       <div dir="ltr" className="truncate text-[11px] font-semibold">
                         {user.email}
                       </div>
@@ -612,23 +618,23 @@ function Index() {
                       to="/settings"
                       className="block border-b border-border px-3 py-2 text-[12px] font-bold text-foreground hover:bg-brand-soft/40"
                     >
-                      الاشتراك والفوترة
+                      {t("dash.billing")}
                     </Link>
                     {isAdmin && (
                       <Link
                         to="/admin"
                         className="block border-b border-border px-3 py-2 text-[12px] font-bold text-brand hover:bg-brand-soft/40"
                       >
-                        لوحة الإدارة
+                        {t("dash.admin")}
                       </Link>
                     )}
 
                     <button
                       type="button"
                       onClick={() => void signOut()}
-                      className="w-full px-3 py-2 text-right text-[12px] font-bold text-foreground hover:bg-brand-soft/40"
+                      className="w-full px-3 py-2 text-start text-[12px] font-bold text-foreground hover:bg-brand-soft/40"
                     >
-                      تسجيل الخروج
+                      {t("dash.logout")}
                     </button>
                   </div>
                 )}
@@ -638,7 +644,7 @@ function Index() {
                 to="/login"
                 className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold text-foreground"
               >
-                تسجيل الدخول
+                {t("nav.login")}
               </Link>
             )}
           </div>
@@ -649,9 +655,9 @@ function Index() {
       <main className="mx-auto max-w-2xl px-4 pt-4 pb-28">
         <section>
           <div className="animate-rise mb-3">
-            <div className="text-[11px] font-semibold text-brand">(أ) رفع الفواتير</div>
+            <div className="text-[11px] font-semibold text-brand">{t("dash.secA")}</div>
             <h1 className="text-[22px] leading-[1.15] font-extrabold tracking-tight text-balance">
-              مرّر الفواتير، ودعها تخرج سِجلاًّ نظيفًا
+              {t("dash.hero")}
             </h1>
           </div>
 
@@ -664,7 +670,7 @@ function Index() {
                 e.preventDefault();
                 void handleFiles(e.dataTransfer.files);
               }}
-              className="relative w-full rounded-xl border border-dashed border-brand/40 bg-brand-soft/30 p-4 text-right"
+              className="relative w-full rounded-xl border border-dashed border-brand/40 bg-brand-soft/30 p-4 text-start"
             >
               <div
                 className="animate-scan pointer-events-none absolute inset-x-0 top-0 h-16"
@@ -678,21 +684,21 @@ function Index() {
                   ↑
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[14px] font-bold">اسحب الفواتير هنا أو اخترها</div>
+                  <div className="text-[14px] font-bold">{t("dash.drop")}</div>
                   <div className="mt-0.5 text-[11px] text-muted-foreground">
-                    صور أو PDF — دفعة بعد دفعة، بلا حدّ أقصى
+                    {t("dash.dropHint")}
                   </div>
                 </div>
               </div>
               <div className="mt-3 flex items-center justify-between rounded-lg bg-background/70 px-3 py-2">
                 <div className="text-[11px] text-muted-foreground">
-                  الدفعة الحالية ·{" "}
+                  {t("dash.batch")} ·{" "}
                   <span className="font-semibold text-foreground">
                     {doneCount}/{jobs.length}
                   </span>
                 </div>
                 <div className="text-[11px] font-bold text-brand">
-                  {running ? "جارٍ التحليل…" : jobs.length ? "مكتملة" : "بانتظار الملفات"}
+                  {running ? t("dash.analyzing") : jobs.length ? t("dash.batchDone") : t("dash.waiting")}
                 </div>
               </div>
             </button>
@@ -713,10 +719,10 @@ function Index() {
             <div className="mt-3">
               <div className="mb-2 flex items-center justify-between px-1">
                 <span className="text-[11px] font-semibold text-muted-foreground">
-                  قائمة المعالجة
+                  {t("dash.queue")}
                 </span>
                 <span className="text-[11px] text-muted-foreground">
-                  {jobs.length - doneCount} متبقية
+                  {t("dash.remaining", { n: jobs.length - doneCount })}
                 </span>
               </div>
               <ul className="max-h-72 space-y-2 overflow-y-auto pl-1">
@@ -739,13 +745,13 @@ function Index() {
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13px] font-semibold">{job.fileName}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {job.status === "queued" && "في الانتظار"}
-                        {job.status === "processing" && "Processing · معالجة OCR…"}
+                        {job.status === "queued" && t("st.queued")}
+                        {job.status === "processing" && t("st.processing")}
                         {job.status === "done" &&
-                          `Completed · ${job.data?.items.length ?? 0} بنود`}
-                        {job.status === "review" && "Needs Review · تحتاج مراجعة يدوية"}
-                        {job.status === "rejected" && "Rejected · ليست فاتورة واضحة"}
-                        {job.status === "error" && `Rejected · ${job.error ?? ""}`}
+                          `${t("st.done")} · ${t("dash.itemsCount", { n: job.data?.items.length ?? 0 })}`}
+                        {job.status === "review" && t("st.review")}
+                        {job.status === "rejected" && t("st.rejected")}
+                        {job.status === "error" && `${t("st.rejected")} · ${job.error ?? ""}`}
                       </div>
                     </div>
                     {(job.status === "review" || job.status === "rejected") && job.data && (
@@ -754,7 +760,7 @@ function Index() {
                         onClick={() => setReviewId(job.id)}
                         className="shrink-0 rounded-lg bg-amber/20 px-2 py-1 text-[10px] font-bold"
                       >
-                        مراجعة
+                        {t("dash.review")}
                       </button>
                     )}
 
@@ -766,8 +772,8 @@ function Index() {
                     </div>
                     <button
                       type="button"
-                      aria-label={`حذف ${job.fileName}`}
-                      title="حذف من القائمة (لا يُعاد الرصيد المستهلك)"
+                      aria-label={t("dash.deleteTitle")}
+                      title={t("dash.deleteTitle")}
                       onClick={() => removeJob(job.id)}
                       className="shrink-0 rounded-lg px-1.5 py-1 text-[13px] font-black leading-none text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                     >
