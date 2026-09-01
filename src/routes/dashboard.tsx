@@ -840,9 +840,94 @@ function Index() {
           </div>
         </section>
 
+        <section className="mt-6">
+          <div className="mb-2 flex items-end justify-between">
+            <div>
+              <div className="text-[11px] font-semibold text-brand">(د) فواتيري الشهرية</div>
+              <h2 className="text-[18px] font-extrabold tracking-tight">الأرشيف الشهري</h2>
+            </div>
+            {!isPro && (
+              <Link to="/pricing" className="text-[11px] font-bold text-brand">
+                فعّل بالترقية
+              </Link>
+            )}
+          </div>
+
+          {!isPro ? (
+            <div className="rounded-2xl bg-surface p-4 text-center ring-1 ring-black/5">
+              <div className="text-[13px] font-extrabold">🔒 الأرشيف متاح لمشتركي Pro</div>
+              <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
+                في خطة Pro تُحفظ كل فواتيرك في حسابك مرتبة حسب الشهر، ويمكنك الرجوع إليها
+                وتصديرها في أي وقت. في الخطة المجانية تُحلَّل الفواتير ثم تُحذف بعد إغلاق الصفحة.
+              </p>
+              <Link
+                to="/pricing"
+                className="mt-3 inline-block rounded-xl bg-brand px-4 py-2.5 text-[13px] font-extrabold text-primary-foreground"
+              >
+                الترقية إلى Pro
+              </Link>
+            </div>
+          ) : monthlyGroups.length === 0 ? (
+            <div className="rounded-2xl bg-surface p-4 text-center text-[12px] text-muted-foreground ring-1 ring-black/5">
+              لا توجد فواتير محفوظة بعد — ارفع أول فاتورة وستظهر هنا.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {monthlyGroups.map((group) => (
+                <div
+                  key={group.key}
+                  className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenMonth(openMonth === group.key ? null : group.key)}
+                    className="flex w-full items-center justify-between gap-2 p-3 text-right"
+                  >
+                    <div>
+                      <div className="text-[13px] font-extrabold">{monthLabel(group.key)}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {group.count} فاتورة · ضريبة {nf.format(group.tax)}
+                      </div>
+                    </div>
+                    <div className="text-[14px] font-extrabold text-brand tabular-nums">
+                      {nf.format(group.total)}
+                    </div>
+                  </button>
+                  {openMonth === group.key && (
+                    <div className="border-t border-border">
+                      {group.jobs.map((j) => (
+                        <button
+                          key={j.id}
+                          type="button"
+                          onClick={() => setReviewId(j.id)}
+                          className="flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-right last:border-0"
+                        >
+                          <span className="min-w-0 flex-1 truncate text-[12px]">
+                            {dash(j.data?.supplier)}{" "}
+                            <span className="text-muted-foreground">
+                              · {dash(j.data?.invoiceNumber)}
+                            </span>
+                          </span>
+                          <span className="text-[12px] font-bold tabular-nums">
+                            {nf.format(j.data?.total ?? 0)}
+                            <span className="mr-1 text-[10px] text-muted-foreground">
+                              {currencySymbol(j.data?.currency ?? null)}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <p className="mt-5 text-center text-[10px] text-muted-foreground">
           دفتر · قِراءة الفواتير بالذكاء الاصطناعي وتحويلها إلى سِجِلّ قابل للتصدير
         </p>
+
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur">
