@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { AuthShell, field, primaryBtn } from "@/components/auth-shell";
 import { trackActivity } from "@/lib/activity.functions";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,36 +36,36 @@ function LoginPage() {
       const banned = /banned|disabled/i.test(error.message);
       toast.error(
         banned
-          ? "تم تعطيل هذا الحساب. تواصل مع الدعم."
+          ? t("toast.accountDisabled")
           : error.message.includes("Invalid login")
-            ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+            ? t("toast.badCredentials")
             : error.message,
       );
       return;
     }
     void trackActivityFn({ data: { action: "login" } }).catch(() => undefined);
-    toast.success("تم تسجيل الدخول");
+    toast.success(t("toast.loggedIn"));
     void navigate({ to: "/dashboard" });
   };
 
   const forgot = async () => {
     if (!email) {
-      toast.error("اكتب بريدك الإلكتروني أولًا");
+      toast.error(t("toast.emailFirst"));
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) toast.error(error.message);
-    else toast.success("أرسلنا رابط إعادة تعيين كلمة المرور إلى بريدك");
+    else toast.success(t("toast.resetSent"));
   };
 
   return (
-    <AuthShell title="تسجيل الدخول" subtitle="ادخل إلى سِجِلّ فواتيرك وتقاريرك">
+    <AuthShell title={t("auth.login.title")} subtitle={t("auth.login.subtitle")}>
       <form onSubmit={submit} className="space-y-3">
         <div>
           <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-            البريد الإلكتروني
+            {t("auth.email")}
           </label>
           <input
             type="email"
@@ -76,7 +78,7 @@ function LoginPage() {
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-            كلمة المرور
+            {t("auth.password")}
           </label>
           <input
             type="password"
@@ -88,7 +90,7 @@ function LoginPage() {
           />
         </div>
         <button type="submit" disabled={busy} className={primaryBtn}>
-          {busy ? "جارٍ الدخول…" : "تسجيل الدخول"}
+          {busy ? t("auth.loggingIn") : t("auth.login.title")}
         </button>
       </form>
 
@@ -97,13 +99,13 @@ function LoginPage() {
         onClick={() => void forgot()}
         className="mt-3 text-[12px] font-semibold text-brand underline-offset-2 hover:underline"
       >
-        نسيت كلمة المرور؟
+        {t("auth.forgot")}
       </button>
 
       <div className="mt-4 border-t border-border pt-3 text-[12px] text-muted-foreground">
-        ليس لديك حساب؟{" "}
+        {t("auth.noAccount")}{" "}
         <Link to="/signup" className="font-bold text-brand">
-          إنشاء حساب
+          {t("nav.signup")}
         </Link>
       </div>
     </AuthShell>
