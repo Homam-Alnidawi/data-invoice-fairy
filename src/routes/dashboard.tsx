@@ -938,33 +938,32 @@ function Index() {
         <section className="mt-6">
           <div className="mb-2 flex items-end justify-between">
             <div>
-              <div className="text-[11px] font-semibold text-brand">(د) فواتيري الشهرية</div>
-              <h2 className="text-[18px] font-extrabold tracking-tight">الأرشيف الشهري</h2>
+              <div className="text-[11px] font-semibold text-brand">{t("dash.secD")}</div>
+              <h2 className="text-[18px] font-extrabold tracking-tight">{t("dash.archive")}</h2>
             </div>
             {!isPro && (
               <Link to="/pricing" className="text-[11px] font-bold text-brand">
-                فعّل بالترقية
+                {t("dash.enableUpgrade")}
               </Link>
             )}
           </div>
 
           {!isPro ? (
             <div className="rounded-2xl bg-surface p-4 text-center ring-1 ring-black/5">
-              <div className="text-[13px] font-extrabold">🔒 الأرشيف متاح لمشتركي Pro</div>
+              <div className="text-[13px] font-extrabold">{t("dash.archiveLocked")}</div>
               <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
-                في خطة Pro تُحفظ كل فواتيرك في حسابك مرتبة حسب الشهر، ويمكنك الرجوع إليها
-                وتصديرها في أي وقت. في الخطة المجانية تُحلَّل الفواتير ثم تُحذف بعد إغلاق الصفحة.
+                {t("dash.archiveLockedBody")}
               </p>
               <Link
                 to="/pricing"
                 className="mt-3 inline-block rounded-xl bg-brand px-4 py-2.5 text-[13px] font-extrabold text-primary-foreground"
               >
-                الترقية إلى Pro
+                {t("dash.upgrade")}
               </Link>
             </div>
           ) : monthlyGroups.length === 0 ? (
             <div className="rounded-2xl bg-surface p-4 text-center text-[12px] text-muted-foreground ring-1 ring-black/5">
-              لا توجد فواتير محفوظة بعد — ارفع أول فاتورة وستظهر هنا.
+              {t("dash.noSaved")}
             </div>
           ) : (
             <div className="space-y-2">
@@ -976,9 +975,9 @@ function Index() {
                   className="flex w-full items-center justify-between gap-2 overflow-hidden rounded-2xl bg-surface p-3 text-right ring-1 ring-black/5 transition-colors hover:bg-brand-soft/40"
                 >
                   <div>
-                    <div className="text-[13px] font-extrabold">{monthLabel(group.key)}</div>
+                    <div className="text-[13px] font-extrabold">{monthLabel(lang, group.key)}</div>
                     <div className="text-[10px] text-muted-foreground">
-                      {group.count} فاتورة · ضريبة {nf.format(group.tax)}
+                      {t("dash.monthItem", { count: group.count, tax: nf.format(group.tax) })}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -994,7 +993,7 @@ function Index() {
         </section>
 
         <p className="mt-5 text-center text-[10px] text-muted-foreground">
-          دفتر · قِراءة الفواتير بالذكاء الاصطناعي وتحويلها إلى سِجِلّ قابل للتصدير
+          {t("dash.taglineFooter")}
         </p>
 
       </main>
@@ -1002,10 +1001,10 @@ function Index() {
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
           <div className="leading-tight">
-            <div className="text-[10px] text-muted-foreground">الإجمالي · الضريبة</div>
+            <div className="text-[10px] text-muted-foreground">{t("dash.totalTax")}</div>
             <div className="text-[16px] font-extrabold tracking-tight tabular-nums">
               {nf.format(totals.total)}
-              <span className="text-[11px] font-bold text-brand"> · ض {nf.format(totals.tax)}</span>
+              <span className="text-[11px] font-bold text-brand"> · {t("dash.taxShort")} {nf.format(totals.tax)}</span>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
