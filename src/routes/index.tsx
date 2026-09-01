@@ -78,10 +78,10 @@ function Landing() {
               جرب مجانًا
             </Link>
             <Link
-              to="/pricing"
+              to="/signup"
               className="rounded-xl border border-border px-5 py-2.5 text-[14px] font-extrabold"
             >
-              الأسعار
+              إنشاء حساب
             </Link>
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
