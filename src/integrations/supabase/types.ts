@@ -47,8 +47,14 @@ export type Database = {
           admin_email: string | null
           admin_id: string | null
           created_at: string
+          duration_days: number | null
           id: string
           metadata: Json
+          new_plan: string | null
+          new_status: string | null
+          old_plan: string | null
+          old_status: string | null
+          reason: string | null
           target_email: string | null
           target_user_id: string | null
         }
@@ -57,8 +63,14 @@ export type Database = {
           admin_email?: string | null
           admin_id?: string | null
           created_at?: string
+          duration_days?: number | null
           id?: string
           metadata?: Json
+          new_plan?: string | null
+          new_status?: string | null
+          old_plan?: string | null
+          old_status?: string | null
+          reason?: string | null
           target_email?: string | null
           target_user_id?: string | null
         }
@@ -67,8 +79,14 @@ export type Database = {
           admin_email?: string | null
           admin_id?: string | null
           created_at?: string
+          duration_days?: number | null
           id?: string
           metadata?: Json
+          new_plan?: string | null
+          new_status?: string | null
+          old_plan?: string | null
+          old_status?: string | null
+          reason?: string | null
           target_email?: string | null
           target_user_id?: string | null
         }
@@ -155,8 +173,96 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_events: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_id: string
+          event_type: string | null
+          id: string
+          payload: Json
+          processed_at: string | null
+          provider: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_id: string
+          event_type?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          provider: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_id?: string
+          event_type?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          provider?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          billing_interval: string
+          code: string
+          created_at: string
+          currency: string
+          description: string | null
+          features: Json
+          invoice_limit: number
+          is_active: boolean
+          name: string
+          price_cents: number
+          processing_limit: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          billing_interval?: string
+          code: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json
+          invoice_limit?: number
+          is_active?: boolean
+          name: string
+          price_cents?: number
+          processing_limit?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          billing_interval?: string
+          code?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json
+          invoice_limit?: number
+          is_active?: boolean
+          name?: string
+          price_cents?: number
+          processing_limit?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          billing_type: string
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
@@ -167,15 +273,21 @@ export type Database = {
           monthly_invoice_limit: number
           monthly_invoice_usage: number
           name: string | null
+          payment_provider: string | null
           plan: string
+          provider_subscription_id: string | null
           status: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          subscription_end: string | null
+          subscription_id: string | null
+          subscription_start: string | null
           subscription_status: string
           updated_at: string
           usage_month: string
         }
         Insert: {
+          billing_type?: string
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
@@ -186,15 +298,21 @@ export type Database = {
           monthly_invoice_limit?: number
           monthly_invoice_usage?: number
           name?: string | null
+          payment_provider?: string | null
           plan?: string
+          provider_subscription_id?: string | null
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_end?: string | null
+          subscription_id?: string | null
+          subscription_start?: string | null
           subscription_status?: string
           updated_at?: string
           usage_month?: string
         }
         Update: {
+          billing_type?: string
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
@@ -205,15 +323,76 @@ export type Database = {
           monthly_invoice_limit?: number
           monthly_invoice_usage?: number
           name?: string | null
+          payment_provider?: string | null
           plan?: string
+          provider_subscription_id?: string | null
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_end?: string | null
+          subscription_id?: string | null
+          subscription_start?: string | null
           subscription_status?: string
           updated_at?: string
           usage_month?: string
         }
         Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          billing_type: string
+          cancelled_at: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          payment_provider: string | null
+          plan: string
+          provider_subscription_id: string | null
+          status: string
+          subscription_end: string | null
+          subscription_start: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billing_type?: string
+          cancelled_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          payment_provider?: string | null
+          plan?: string
+          provider_subscription_id?: string | null
+          status?: string
+          subscription_end?: string | null
+          subscription_start?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billing_type?: string
+          cancelled_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          payment_provider?: string | null
+          plan?: string
+          provider_subscription_id?: string | null
+          status?: string
+          subscription_end?: string | null
+          subscription_start?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_fkey"
+            columns: ["plan"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -280,6 +459,40 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_subscription: {
+        Args: {
+          _billing_type: string
+          _end: string
+          _metadata?: Json
+          _payment_provider: string
+          _plan: string
+          _provider_subscription_id: string
+          _start: string
+          _status: string
+          _user_id: string
+        }
+        Returns: {
+          billing_type: string
+          cancelled_at: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          payment_provider: string | null
+          plan: string
+          provider_subscription_id: string | null
+          status: string
+          subscription_end: string | null
+          subscription_start: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       bump_usage: {
         Args: {
           _excel_exports?: number
@@ -303,6 +516,7 @@ export type Database = {
       ensure_profile: {
         Args: { _email?: string; _user_id: string }
         Returns: {
+          billing_type: string
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
@@ -313,10 +527,15 @@ export type Database = {
           monthly_invoice_limit: number
           monthly_invoice_usage: number
           name: string | null
+          payment_provider: string | null
           plan: string
+          provider_subscription_id: string | null
           status: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          subscription_end: string | null
+          subscription_id: string | null
+          subscription_start: string | null
           subscription_status: string
           updated_at: string
           usage_month: string
@@ -328,6 +547,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      expire_due_subscriptions: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -337,6 +557,14 @@ export type Database = {
       }
       refund_guest_quota: { Args: { _fingerprint: string }; Returns: undefined }
       refund_invoice_quota: { Args: { _user_id: string }; Returns: undefined }
+      revoke_subscription: {
+        Args: { _reason?: string; _user_id: string }
+        Returns: undefined
+      }
+      sync_profile_subscription: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"

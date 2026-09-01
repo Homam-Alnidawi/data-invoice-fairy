@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { adminOverview } from "@/lib/admin.functions";
+import { adminSubscriptionStats } from "@/lib/subscriptions.functions";
 
 export const Route = createFileRoute("/admin/")({
   ssr: false,
@@ -28,7 +29,9 @@ function Card({ label, value, hint }: { label: string; value: number | string; h
 
 function AdminHome() {
   const fn = useServerFn(adminOverview);
+  const subFn = useServerFn(adminSubscriptionStats);
   const { data, isLoading, error } = useQuery({ queryKey: ["admin-overview"], queryFn: () => fn() });
+  const subs = useQuery({ queryKey: ["admin-sub-stats"], queryFn: () => subFn() });
 
   if (isLoading) return <div className="text-sm text-muted-foreground">جارٍ التحميل…</div>;
   if (error || !data)
@@ -50,6 +53,23 @@ function AdminHome() {
         <Card label="ملفات Excel" value={data.excelExports} />
         <Card label="ملفات PDF" value={data.pdfExports} />
       </div>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-bold">Subscriptions</h2>
+        {subs.data ? (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Card label="Total Users" value={subs.data.totalUsers} />
+            <Card label="Free Users" value={subs.data.freeUsers} />
+            <Card label="Pro Users" value={subs.data.proUsers} />
+            <Card label="Active Subscriptions" value={subs.data.activeSubscriptions} />
+            <Card label="Expired Subscriptions" value={subs.data.expiredSubscriptions} />
+            <Card label="Admin Granted" value={subs.data.adminGranted} />
+            <Card label="Paid Subscriptions" value={subs.data.paidSubscriptions} />
+          </div>
+        ) : (
+          <div className="text-[12px] text-muted-foreground">جارٍ تحميل بيانات الاشتراكات…</div>
+        )}
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-4 lg:col-span-2">
