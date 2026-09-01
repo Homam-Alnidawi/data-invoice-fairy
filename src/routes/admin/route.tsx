@@ -84,6 +84,14 @@ function AdminLayout() {
         <div className="text-sm font-black">دفتر — Admin</div>
         <div className="text-[11px] text-muted-foreground">لوحة إدارة النظام</div>
       </div>
+      <Link
+        to="/"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted"
+      >
+        <Home className="size-4" />
+        الصفحة الرئيسية
+      </Link>
+      <div className="my-2 border-t border-border" />
       {NAV.map((n) => {
         const active = n.exact ? path === n.to : path.startsWith(n.to);
         return (
@@ -99,14 +107,6 @@ function AdminLayout() {
           </Link>
         );
       })}
-      <div className="my-2 border-t border-border" />
-      <Link
-        to="/"
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted"
-      >
-        <Home className="size-4" />
-        الصفحة الرئيسية
-      </Link>
       <button
         onClick={() => void signOut()}
         className="mt-auto flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10"
