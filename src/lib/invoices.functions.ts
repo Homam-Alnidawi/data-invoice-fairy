@@ -1,12 +1,30 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const Input = z.object({
   fileName: z.string(),
   mimeType: z.string(),
   dataUrl: z.string(),
 });
+
+export class QuotaError extends Error {
+  kind: "guest" | "free" | "pro";
+  used: number;
+  limit: number;
+  constructor(kind: "guest" | "free" | "pro", used: number, limit: number) {
+    super(`QUOTA_EXCEEDED:${kind}:${used}:${limit}`);
+    this.kind = kind;
+    this.used = used;
+    this.limit = limit;
+  }
+}
+
+export function parseQuotaError(message: string) {
+  const m = message.match(/QUOTA_EXCEEDED:(guest|free|pro):(\d+):(\d+)/);
+  if (!m) return null;
+  return { kind: m[1] as "guest" | "free" | "pro", used: Number(m[2]), limit: Number(m[3]) };
+}
+
 
 export type InvoiceItem = {
   name: string;
@@ -97,11 +115,23 @@ const LOW = 0.6;
 const EPS = 0.05; // هامش خطأ نسبي بسيط
 
 export const extractInvoice = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<ExtractedInvoice> => {
     const key = process.env["LOVABLE_API_KEY"];
     if (!key) throw new Error("مفتاح الذكاء الاصطناعي غير مهيأ");
+
+    // التحقق من الخطة والرصيد على الخادم قبل أي معالجة
+    const { consumeQuota } = await import("./usage.server");
+    const ticket = await consumeQuota();
+    if (!ticket.allowed) {
+      throw new QuotaError(ticket.kind, ticket.used, ticket.limit);
+    }
+    const refund = ticket.refund;
+    const fail = async (err: unknown) => {
+      await refund().catch(() => undefined);
+      throw err;
+    };
+
 
     const isPdf =
       data.mimeType === "application/pdf" || data.dataUrl.startsWith("data:application/pdf");
@@ -135,13 +165,16 @@ export const extractInvoice = createServerFn({ method: "POST" })
           },
         ],
       }),
+    }).catch(async (e: unknown) => {
+      await fail(new Error("تعذّر الاتصال بخدمة الذكاء الاصطناعي"));
+      throw e;
     });
 
     if (!res.ok) {
       const body = await res.text();
-      if (res.status === 429) throw new Error("تم تجاوز حد الطلبات، حاول بعد قليل");
-      if (res.status === 402) throw new Error("رصيد الذكاء الاصطناعي غير كافٍ");
-      throw new Error(`تعذّرت قراءة الفاتورة (${res.status}) ${body.slice(0, 160)}`);
+      if (res.status === 429) await fail(new Error("تم تجاوز حد الطلبات، حاول بعد قليل"));
+      if (res.status === 402) await fail(new Error("رصيد الذكاء الاصطناعي غير كافٍ"));
+      await fail(new Error(`تعذّرت قراءة الفاتورة (${res.status}) ${body.slice(0, 160)}`));
     }
 
     const json = (await res.json()) as {
@@ -149,14 +182,16 @@ export const extractInvoice = createServerFn({ method: "POST" })
     };
     const text = json.choices?.[0]?.message?.content ?? "";
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("لم نتمكن من تفسير محتوى الفاتورة");
+    if (!match) await fail(new Error("لم نتمكن من تفسير محتوى الفاتورة"));
 
     let raw: Record<string, unknown>;
     try {
-      raw = JSON.parse(match[0]) as Record<string, unknown>;
+      raw = JSON.parse(match![0]) as Record<string, unknown>;
     } catch {
-      throw new Error("لم نتمكن من تفسير محتوى الفاتورة");
+      await fail(new Error("لم نتمكن من تفسير محتوى الفاتورة"));
+      raw = {};
     }
+
 
     const c = (raw["confidence"] ?? {}) as Record<string, unknown>;
     const confidence: Confidence = {

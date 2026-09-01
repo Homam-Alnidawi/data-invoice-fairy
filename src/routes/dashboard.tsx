@@ -1,33 +1,35 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   extractInvoice,
+  parseQuotaError,
   type ExtractedInvoice,
   type InvoiceItem,
 } from "@/lib/invoices.functions";
+import { getUsageState, type UsageState } from "@/lib/usage.functions";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({
+export const Route = createFileRoute("/dashboard")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "لوحة التحكم — دفتر" },
       {
         name: "description",
         content:
-          "ارفع فواتير مشترياتك بلا حدّ أقصى ويقوم دفتر بقراءتها بالـAI/OCR واستخراج الموردين والمنتجات والأسعار وحساب المجموع والضريبة في تقرير جاهز للتصدير.",
+          "ارفع فواتير مشترياتك ويقوم دفتر بقراءتها بالـAI/OCR واستخراج الموردين والمنتجات والأسعار وحساب المجموع والضريبة في تقرير جاهز للتصدير.",
       },
       { property: "og:title", content: "دفتر — قراءة فواتير المشتريات بالذكاء الاصطناعي" },
       {
         property: "og:description",
-        content: "ارفع أي عدد من الفواتير واحصل على سِجِلّ منظّم وتقرير بالمجاميع والضرائب.",
+        content: "ارفع فواتيرك واحصل على سِجِلّ منظّم وتقرير بالمجاميع والضرائب.",
       },
     ],
   }),
   component: Index,
 });
-
 
 const CONCURRENCY = 4;
 const PAGE_SIZE = 8;
@@ -41,6 +43,8 @@ type Job = {
   progress: number;
   error?: string;
   previewUrl?: string;
+  mimeType?: string;
+  createdAt?: string;
   data?: ExtractedInvoice;
 };
 
@@ -59,6 +63,26 @@ const statusLabel: Record<Status, string> = {
   rejected: "Rejected",
   error: "Rejected",
 };
+
+const AR_MONTHS = [
+  "يناير",
+  "فبراير",
+  "مارس",
+  "أبريل",
+  "مايو",
+  "يونيو",
+  "يوليو",
+  "أغسطس",
+  "سبتمبر",
+  "أكتوبر",
+  "نوفمبر",
+  "ديسمبر",
+];
+
+function monthLabel(key: string) {
+  const [y, m] = key.split("-");
+  return `${AR_MONTHS[Number(m) - 1] ?? m} ${y}`;
+}
 
 function currencySymbol(code: string | null) {
   if (!code) return "";
@@ -81,26 +105,61 @@ function readAsDataUrl(file: File) {
 
 function Index() {
   const extract = useServerFn(extractInvoice);
+  const usageFn = useServerFn(getUsageState);
   const navigate = useNavigate();
-  const { user } = Route.useRouteContext();
+  const [user, setUser] = useState<{ id: string; email: string | null } | null>(null);
+  const [usage, setUsage] = useState<UsageState | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [page, setPage] = useState(0);
   const [running, setRunning] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openMonth, setOpenMonth] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isPro = usage?.kind === "pro";
 
   const patch = useCallback((id: string, next: Partial<Job>) => {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...next } : j)));
   }, []);
 
-  // تحميل فواتير هذا المستخدم فقط (محميّة بقواعد RLS في قاعدة البيانات)
+  // جلسة المستخدم (اختيارية — الزائر يستطيع التجربة بدون حساب)
   useEffect(() => {
+    let alive = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!alive) return;
+      setUser(data.user ? { id: data.user.id, email: data.user.email ?? null } : null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ? { id: session.user.id, email: session.user.email ?? null } : null);
+    });
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  const refreshUsage = useCallback(async () => {
+    try {
+      setUsage(await usageFn({}));
+    } catch {
+      /* تجاهل — لا يعطّل الواجهة */
+    }
+  }, [usageFn]);
+
+  useEffect(() => {
+    void refreshUsage();
+  }, [refreshUsage, user]);
+
+  // سجل الفواتير المحفوظ — ميزة Pro فقط (محميّ بقواعد RLS)
+  useEffect(() => {
+    if (!isPro) return;
     let alive = true;
     void (async () => {
       const { data, error } = await supabase
         .from("invoices")
-        .select("id, file_name, status, data")
+        .select("id, file_name, status, data, created_at")
         .order("created_at", { ascending: false });
       if (error || !alive || !data) return;
       const saved: Job[] = data.map((row) => ({
@@ -108,17 +167,23 @@ function Index() {
         fileName: row.file_name,
         status: (row.status as Status) ?? "done",
         progress: 100,
+        createdAt: row.created_at,
         data: row.data as unknown as ExtractedInvoice,
       }));
-      setJobs((prev) => [...prev, ...saved]);
+      setJobs((prev) => {
+        const known = new Set(prev.map((j) => j.id));
+        return [...prev, ...saved.filter((s) => !known.has(s.id))];
+      });
     })();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [isPro]);
 
+  // الحفظ الدائم متاح لمستخدمي Pro فقط — لا تُحفظ ملفات الزائر أو Free
   const persist = useCallback(
     async (fileName: string, status: Status, inv: ExtractedInvoice) => {
+      if (!user || !isPro) return;
       const { error } = await supabase.from("invoices").insert({
         user_id: user.id,
         file_name: fileName,
@@ -135,41 +200,60 @@ function Index() {
       });
       if (error) console.error(error);
     },
-    [user.id],
+    [user, isPro],
   );
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    void navigate({ to: "/login", replace: true });
+    setJobs([]);
+    void navigate({ to: "/", replace: true });
   }, [navigate]);
 
   const handleFiles = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
-      const files = Array.from(fileList);
+      let files = Array.from(fileList);
+
+      const remaining = usage ? Math.max(0, usage.limit - usage.used) : files.length;
+      if (usage && remaining === 0) {
+        setUpgradeOpen(true);
+        return;
+      }
+      if (usage && files.length > remaining) {
+        files = files.slice(0, remaining);
+        toast.error(`رصيدك يسمح بمعالجة ${remaining} فاتورة فقط الآن`);
+      }
 
       const newJobs: Job[] = files.map((f, i) => ({
         id: `${Date.now()}-${i}-${f.name}`,
         fileName: f.name,
         status: "queued",
         progress: 0,
+        mimeType: f.type,
+        previewUrl: URL.createObjectURL(f),
       }));
       setJobs((prev) => [...newJobs, ...prev]);
       setRunning(true);
 
+      let quotaHit = false;
       let cursor = 0;
       const worker = async () => {
         while (cursor < files.length) {
           const index = cursor++;
+          if (quotaHit) {
+            patch(newJobs[index]!.id, {
+              status: "error",
+              progress: 100,
+              error: "انتهى الرصيد المجاني",
+            });
+            continue;
+          }
           const file = files[index]!;
           const job = newJobs[index]!;
           patch(job.id, { status: "processing", progress: 25 });
           try {
             const dataUrl = await readAsDataUrl(file);
-            patch(job.id, {
-              progress: 60,
-              ...(file.type.startsWith("image/") ? { previewUrl: dataUrl } : {}),
-            });
+            patch(job.id, { progress: 60 });
 
             const data = await extract({
               data: { fileName: file.name, mimeType: file.type, dataUrl },
@@ -183,22 +267,32 @@ function Index() {
             patch(job.id, { status: nextStatus, progress: 100, data });
             void persist(file.name, nextStatus, data);
           } catch (err) {
-            // فشل فاتورة واحدة لا يوقف البقية
-            patch(job.id, {
-              status: "error",
-              progress: 100,
-              error: err instanceof Error ? err.message : "خطأ غير معروف",
-            });
+            const message = err instanceof Error ? err.message : "خطأ غير معروف";
+            const quota = parseQuotaError(message);
+            if (quota) {
+              quotaHit = true;
+              setUpgradeOpen(true);
+              patch(job.id, {
+                status: "error",
+                progress: 100,
+                error: "انتهى رصيدك — قم بالترقية",
+              });
+            } else {
+              // فشل فاتورة واحدة لا يوقف البقية (ولا يُخصم رصيد)
+              patch(job.id, { status: "error", progress: 100, error: message });
+            }
           }
         }
       };
 
       await Promise.all(Array.from({ length: CONCURRENCY }, worker));
       setRunning(false);
-      toast.success("انتهت معالجة الدفعة");
+      void refreshUsage();
+      if (!quotaHit) toast.success("انتهت معالجة الدفعة");
     },
-    [extract, patch, persist],
+    [extract, patch, persist, usage, refreshUsage],
   );
+
 
   const parsedJobs = useMemo(
     () => jobs.filter((j) => j.data && j.data.status !== "rejected"),
@@ -387,7 +481,45 @@ function Index() {
     patch(id, { data: next, status: "done" });
     setReviewId(null);
     toast.success("تم حفظ المراجعة");
+    if (isPro) {
+      void supabase
+        .from("invoices")
+        .update({
+          status: "done",
+          supplier: next.supplier,
+          invoice_number: next.invoiceNumber,
+          invoice_date: next.date,
+          currency: next.currency,
+          subtotal: next.subtotal,
+          discount: next.discount,
+          tax: next.tax,
+          total: next.total,
+          data: next as unknown as never,
+        })
+        .eq("id", id);
+    }
   };
+
+  // تجميع الفواتير المحفوظة حسب الشهر (Pro)
+  const monthlyGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      { key: string; jobs: Job[]; count: number; total: number; tax: number }
+    >();
+    for (const j of jobs) {
+      if (!j.data) continue;
+      const d = new Date(j.createdAt ?? Date.now());
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const g = map.get(key) ?? { key, jobs: [], count: 0, total: 0, tax: 0 };
+      g.jobs.push(j);
+      g.count += 1;
+      g.total += j.data.total ?? 0;
+      g.tax += j.data.tax ?? 0;
+      map.set(key, g);
+    }
+    return Array.from(map.values()).sort((a, b) => (a.key < b.key ? 1 : -1));
+  }, [jobs]);
+
 
 
 
@@ -406,33 +538,70 @@ function Index() {
               </div>
             </div>
           </div>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              className="max-w-[150px] truncate rounded-full bg-brand-soft/60 px-3 py-1 text-[11px] font-semibold"
-              dir="ltr"
-            >
-              {user.email}
-            </button>
-            {menuOpen && (
-              <div className="absolute left-0 z-30 mt-2 w-44 overflow-hidden rounded-xl bg-surface text-right shadow-lg ring-1 ring-black/10">
-                <div className="border-b border-border px-3 py-2">
-                  <div className="text-[10px] text-muted-foreground">الحساب</div>
-                  <div dir="ltr" className="truncate text-[11px] font-semibold">
-                    {user.email}
-                  </div>
-                </div>
+          <div className="flex items-center gap-2">
+            {usage && (
+              <span className="rounded-full bg-brand-soft/60 px-2.5 py-1 text-[10px] font-bold">
+                {usage.kind === "guest" && `التجربة المجانية: ${usage.used} / ${usage.limit}`}
+                {usage.kind === "free" &&
+                  `المتبقي هذا الشهر: ${Math.max(0, usage.limit - usage.used)} / ${usage.limit}`}
+                {usage.kind === "pro" && `المستخدمة: ${usage.used} / ${usage.limit}`}
+              </span>
+            )}
+            {usage && usage.kind !== "pro" ? (
+              <Link
+                to="/pricing"
+                className="shrink-0 rounded-full bg-brand px-2.5 py-1 text-[10px] font-bold text-primary-foreground"
+              >
+                الترقية إلى Pro
+              </Link>
+            ) : (
+              usage && (
+                <Link
+                  to="/pricing"
+                  className="shrink-0 rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold text-ink-foreground"
+                >
+                  إدارة الاشتراك
+                </Link>
+              )
+            )}
+            {user ? (
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => void signOut()}
-                  className="w-full px-3 py-2 text-right text-[12px] font-bold text-foreground hover:bg-brand-soft/40"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="max-w-[130px] truncate rounded-full bg-surface px-3 py-1 text-[11px] font-semibold ring-1 ring-black/5"
+                  dir="ltr"
                 >
-                  تسجيل الخروج
+                  {user.email}
                 </button>
+                {menuOpen && (
+                  <div className="absolute left-0 z-30 mt-2 w-44 overflow-hidden rounded-xl bg-surface text-right shadow-lg ring-1 ring-black/10">
+                    <div className="border-b border-border px-3 py-2">
+                      <div className="text-[10px] text-muted-foreground">الحساب</div>
+                      <div dir="ltr" className="truncate text-[11px] font-semibold">
+                        {user.email}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void signOut()}
+                      className="w-full px-3 py-2 text-right text-[12px] font-bold text-foreground hover:bg-brand-soft/40"
+                    >
+                      تسجيل الخروج
+                    </button>
+                  </div>
+                )}
               </div>
+            ) : (
+              <Link
+                to="/login"
+                className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold text-foreground"
+              >
+                تسجيل الدخول
+              </Link>
             )}
           </div>
+
         </div>
       </header>
 
@@ -709,9 +878,94 @@ function Index() {
           </div>
         </section>
 
+        <section className="mt-6">
+          <div className="mb-2 flex items-end justify-between">
+            <div>
+              <div className="text-[11px] font-semibold text-brand">(د) فواتيري الشهرية</div>
+              <h2 className="text-[18px] font-extrabold tracking-tight">الأرشيف الشهري</h2>
+            </div>
+            {!isPro && (
+              <Link to="/pricing" className="text-[11px] font-bold text-brand">
+                فعّل بالترقية
+              </Link>
+            )}
+          </div>
+
+          {!isPro ? (
+            <div className="rounded-2xl bg-surface p-4 text-center ring-1 ring-black/5">
+              <div className="text-[13px] font-extrabold">🔒 الأرشيف متاح لمشتركي Pro</div>
+              <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
+                في خطة Pro تُحفظ كل فواتيرك في حسابك مرتبة حسب الشهر، ويمكنك الرجوع إليها
+                وتصديرها في أي وقت. في الخطة المجانية تُحلَّل الفواتير ثم تُحذف بعد إغلاق الصفحة.
+              </p>
+              <Link
+                to="/pricing"
+                className="mt-3 inline-block rounded-xl bg-brand px-4 py-2.5 text-[13px] font-extrabold text-primary-foreground"
+              >
+                الترقية إلى Pro
+              </Link>
+            </div>
+          ) : monthlyGroups.length === 0 ? (
+            <div className="rounded-2xl bg-surface p-4 text-center text-[12px] text-muted-foreground ring-1 ring-black/5">
+              لا توجد فواتير محفوظة بعد — ارفع أول فاتورة وستظهر هنا.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {monthlyGroups.map((group) => (
+                <div
+                  key={group.key}
+                  className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenMonth(openMonth === group.key ? null : group.key)}
+                    className="flex w-full items-center justify-between gap-2 p-3 text-right"
+                  >
+                    <div>
+                      <div className="text-[13px] font-extrabold">{monthLabel(group.key)}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {group.count} فاتورة · ضريبة {nf.format(group.tax)}
+                      </div>
+                    </div>
+                    <div className="text-[14px] font-extrabold text-brand tabular-nums">
+                      {nf.format(group.total)}
+                    </div>
+                  </button>
+                  {openMonth === group.key && (
+                    <div className="border-t border-border">
+                      {group.jobs.map((j) => (
+                        <button
+                          key={j.id}
+                          type="button"
+                          onClick={() => setReviewId(j.id)}
+                          className="flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-right last:border-0"
+                        >
+                          <span className="min-w-0 flex-1 truncate text-[12px]">
+                            {dash(j.data?.supplier)}{" "}
+                            <span className="text-muted-foreground">
+                              · {dash(j.data?.invoiceNumber)}
+                            </span>
+                          </span>
+                          <span className="text-[12px] font-bold tabular-nums">
+                            {nf.format(j.data?.total ?? 0)}
+                            <span className="mr-1 text-[10px] text-muted-foreground">
+                              {currencySymbol(j.data?.currency ?? null)}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <p className="mt-5 text-center text-[10px] text-muted-foreground">
           دفتر · قِراءة الفواتير بالذكاء الاصطناعي وتحويلها إلى سِجِلّ قابل للتصدير
         </p>
+
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur">
@@ -757,6 +1011,43 @@ function Index() {
           onSave={(next) => saveReview(reviewJob.id, next)}
         />
       )}
+
+      {upgradeOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-md rounded-t-2xl bg-background p-5 text-center sm:rounded-2xl">
+            <div className="text-[18px] font-extrabold">انتهى رصيدك المجاني</div>
+            <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+              {usage?.kind === "guest"
+                ? "لقد استخدمت الفاتورتين المجانيتين. أنشئ حسابًا مجانيًا للحصول على 5 فواتير شهريًا، أو ارتقِ إلى Pro لتحليل 1000 فاتورة شهريًا مع حفظ وأرشفة."
+                : "لقد استخدمت فواتيرك المجانية لهذا الشهر. ارتقِ إلى Pro لتحليل 1000 فاتورة شهريًا مع حفظ الفواتير وأرشفتها."}
+            </p>
+            <div className="mt-4 grid gap-2">
+              <Link
+                to="/pricing"
+                className="rounded-xl bg-brand py-3 text-[14px] font-extrabold text-primary-foreground"
+              >
+                الترقية إلى Pro — $25/شهر
+              </Link>
+              {usage?.kind === "guest" && (
+                <Link
+                  to="/signup"
+                  className="rounded-xl border border-border py-3 text-[13px] font-extrabold"
+                >
+                  إنشاء حساب مجاني (5 فواتير شهريًا)
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setUpgradeOpen(false)}
+                className="py-2 text-[12px] font-bold text-muted-foreground"
+              >
+                لاحقًا
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
 
   );
@@ -822,13 +1113,21 @@ function ReviewDialog({
           </button>
         </div>
 
-        {job.previewUrl && (
-          <img
-            src={job.previewUrl}
-            alt={`صورة الفاتورة ${job.fileName}`}
-            className="mb-3 max-h-64 w-full rounded-xl object-contain ring-1 ring-black/5"
-          />
-        )}
+        {job.previewUrl &&
+          (job.mimeType === "application/pdf" ? (
+            <iframe
+              src={job.previewUrl}
+              title={`معاينة الفاتورة ${job.fileName}`}
+              className="mb-3 h-64 w-full rounded-xl ring-1 ring-black/5"
+            />
+          ) : (
+            <img
+              src={job.previewUrl}
+              alt={`صورة الفاتورة ${job.fileName}`}
+              className="mb-3 max-h-64 w-full rounded-xl object-contain ring-1 ring-black/5"
+            />
+          ))}
+
 
         {draft.warnings.length > 0 && (
           <ul className="mb-3 space-y-1 rounded-xl bg-amber/15 p-2.5 text-[11px]">
