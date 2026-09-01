@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { amIAdmin } from "@/lib/admin.functions";
-import { BarChart3, CreditCard, LayoutDashboard, LogOut, Menu, Settings, Users } from "lucide-react";
+import { BarChart3, CreditCard, Home, LayoutDashboard, LogOut, Menu, Settings, Users } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
