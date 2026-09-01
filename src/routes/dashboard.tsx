@@ -12,6 +12,7 @@ import {
 import { getUsageState, type UsageState } from "@/lib/usage.functions";
 import { trackActivity } from "@/lib/activity.functions";
 import { amIAdmin } from "@/lib/admin.functions";
+import { LanguageSwitcher, monthLabel, useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -55,36 +56,6 @@ const nf = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-const dash = (v: string | null | undefined) => (v && v.trim() ? v : "غير معروف");
-
-const statusLabel: Record<Status, string> = {
-  queued: "في الانتظار",
-  processing: "Processing",
-  done: "Completed",
-  review: "Needs Review",
-  rejected: "Rejected",
-  error: "Rejected",
-};
-
-const AR_MONTHS = [
-  "يناير",
-  "فبراير",
-  "مارس",
-  "أبريل",
-  "مايو",
-  "يونيو",
-  "يوليو",
-  "أغسطس",
-  "سبتمبر",
-  "أكتوبر",
-  "نوفمبر",
-  "ديسمبر",
-];
-
-function monthLabel(key: string) {
-  const [y, m] = key.split("-");
-  return `${AR_MONTHS[Number(m) - 1] ?? m} ${y}`;
-}
 
 function currencySymbol(code: string | null) {
   if (!code) return "";
@@ -96,11 +67,11 @@ function currencySymbol(code: string | null) {
   return code;
 }
 
-function readAsDataUrl(file: File) {
+function readAsDataUrl(file: File, failMsg: string) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("تعذّر قراءة الملف"));
+    reader.onerror = () => reject(new Error(failMsg));
     reader.readAsDataURL(file);
   });
 }
@@ -118,6 +89,11 @@ function Index() {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t, lang } = useI18n();
+  const dash = (v: string | null | undefined) => (v && v.trim() ? v : t("dash.unknown"));
+  const statusLabel = (s: Status): string =>
+    s === "error" || s === "rejected" ? t("st.rejected") : t(`st.${s}`);
+
 
   const isPro = usage?.kind === "pro";
 
