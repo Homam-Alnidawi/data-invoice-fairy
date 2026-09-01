@@ -14,13 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      guest_usage: {
+        Row: {
+          created_at: string
+          fingerprint: string
+          id: string
+          updated_at: string
+          used: number
+        }
+        Insert: {
+          created_at?: string
+          fingerprint: string
+          id?: string
+          updated_at?: string
+          used?: number
+        }
+        Update: {
+          created_at?: string
+          fingerprint?: string
+          id?: string
+          updated_at?: string
+          used?: number
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
+          archive_month: string
           created_at: string
           currency: string | null
           data: Json
           discount: number
           file_name: string
+          file_path: string | null
           id: string
           invoice_date: string | null
           invoice_number: string | null
@@ -32,11 +58,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archive_month?: string
           created_at?: string
           currency?: string | null
           data: Json
           discount?: number
           file_name: string
+          file_path?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -48,11 +76,13 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          archive_month?: string
           created_at?: string
           currency?: string | null
           data?: Json
           discount?: number
           file_name?: string
+          file_path?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -65,12 +95,93 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          email: string | null
+          id: string
+          monthly_invoice_limit: number
+          monthly_invoice_usage: number
+          plan: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string
+          updated_at: string
+          usage_month: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          email?: string | null
+          id: string
+          monthly_invoice_limit?: number
+          monthly_invoice_usage?: number
+          plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string
+          updated_at?: string
+          usage_month?: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          email?: string | null
+          id?: string
+          monthly_invoice_limit?: number
+          monthly_invoice_usage?: number
+          plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string
+          updated_at?: string
+          usage_month?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      consume_guest_quota: {
+        Args: { _fingerprint: string; _limit?: number }
+        Returns: Json
+      }
+      consume_invoice_quota: {
+        Args: { _email?: string; _user_id: string }
+        Returns: Json
+      }
+      ensure_profile: {
+        Args: { _email?: string; _user_id: string }
+        Returns: {
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          email: string | null
+          id: string
+          monthly_invoice_limit: number
+          monthly_invoice_usage: number
+          plan: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string
+          updated_at: string
+          usage_month: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      refund_guest_quota: { Args: { _fingerprint: string }; Returns: undefined }
+      refund_invoice_quota: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
