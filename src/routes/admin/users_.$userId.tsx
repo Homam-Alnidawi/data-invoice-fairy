@@ -10,21 +10,27 @@ import {
   setUserRole,
   setUserStatus,
 } from "@/lib/admin.functions";
+import {
+  adminGrantPlan,
+  adminRevokePlan,
+  adminUserSubscriptions,
+} from "@/lib/subscriptions.functions";
 
 export const Route = createFileRoute("/admin/users_/$userId")({
   ssr: false,
   head: () => ({
     meta: [
       { title: "تفاصيل المستخدم — إدارة دفتر" },
-      { name: "description", content: "عرض نشاط المستخدم واستخدامه وإدارة حسابه في دفتر." },
+      { name: "description", content: "عرض نشاط المستخدم واستخدامه وإدارة اشتراكه في دفتر." },
       { property: "og:title", content: "تفاصيل المستخدم — إدارة دفتر" },
-      { property: "og:description", content: "سجل النشاط والإحصائيات وإجراءات الحساب." },
+      { property: "og:description", content: "الاشتراك وسجل النشاط والإحصائيات وإجراءات الحساب." },
     ],
   }),
   component: UserDetail,
 });
 
 const fmt = (v: string | null) => (v ? new Date(v).toLocaleString("ar-EG") : "—");
+const DURATIONS = [7, 30, 90, 180, 365] as const;
 
 function UserDetail() {
   const { userId } = Route.useParams();
@@ -36,19 +42,67 @@ function UserDetail() {
   const role = useServerFn(setUserRole);
   const resetPw = useServerFn(resetUserPassword);
   const remove = useServerFn(deleteUser);
+  const grantFn = useServerFn(adminGrantPlan);
+  const revokeFn = useServerFn(adminRevokePlan);
+  const subsFn = useServerFn(adminUserSubscriptions);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [days, setDays] = useState<number>(30);
+  const [customDays, setCustomDays] = useState("");
+  const [useCustom, setUseCustom] = useState(false);
+  const [reason, setReason] = useState("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin-user", userId],
     queryFn: () => detail({ data: { userId } }),
   });
 
+  const subs = useQuery({
+    queryKey: ["admin-user-subs", userId],
+    queryFn: () => subsFn({ data: { userId } }),
+  });
+
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["admin-user", userId] });
+    void qc.invalidateQueries({ queryKey: ["admin-user-subs", userId] });
     void qc.invalidateQueries({ queryKey: ["admin-users"] });
     void qc.invalidateQueries({ queryKey: ["admin-overview"] });
+    void qc.invalidateQueries({ queryKey: ["admin-sub-stats"] });
   };
+
+  const grant = useMutation({
+    mutationFn: () =>
+      grantFn({
+        data: {
+          userId,
+          plan: "pro",
+          days: useCustom ? Math.max(1, Number(customDays) || 0) : days,
+          ...(reason.trim() ? { reason: reason.trim() } : {}),
+        },
+      }),
+    onSuccess: () => {
+      toast.success("تم تفعيل اشتراك Pro");
+      setGrantOpen(false);
+      setReason("");
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const revoke = useMutation({
+    mutationFn: () =>
+      revokeFn({ data: { userId, ...(reason.trim() ? { reason: reason.trim() } : {}) } }),
+    onSuccess: () => {
+      toast.success("تم سحب اشتراك Pro");
+      setRevokeOpen(false);
+      setReason("");
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const toggle = useMutation({
     mutationFn: (disabled: boolean) => status({ data: { userId, disabled } }),
