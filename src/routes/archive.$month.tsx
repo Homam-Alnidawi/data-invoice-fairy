@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { LanguageSwitcher, monthLabel, useI18n } from "@/lib/i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,26 +37,6 @@ const nf = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-const AR_MONTHS = [
-  "يناير",
-  "فبراير",
-  "مارس",
-  "أبريل",
-  "مايو",
-  "يونيو",
-  "يوليو",
-  "أغسطس",
-  "سبتمبر",
-  "أكتوبر",
-  "نوفمبر",
-  "ديسمبر",
-];
-
-function monthLabel(key: string) {
-  const [y, m] = key.split("-");
-  const name = AR_MONTHS[Number(m) - 1];
-  return name ? `${name} ${y}` : key;
-}
 
 function currencySymbol(code: string | null) {
   if (!code) return "";
@@ -92,6 +73,7 @@ type SupplierGroup = {
 
 function ArchiveMonthPage() {
   const { month } = Route.useParams();
+  const { t, lang } = useI18n();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [noAuth, setNoAuth] = useState(false);
@@ -113,7 +95,7 @@ function ArchiveMonthPage() {
         .eq("archive_month", month)
         .order("created_at", { ascending: false });
       if (!alive) return;
-      if (err) setError("تعذّر تحميل فواتير هذا الشهر");
+      if (err) setError(t("arc.loadError"));
       else setRows((data as unknown as Row[]) ?? []);
     })();
     return () => {
@@ -124,7 +106,7 @@ function ArchiveMonthPage() {
   const groups = useMemo<SupplierGroup[]>(() => {
     const map = new Map<string, SupplierGroup>();
     for (const r of rows ?? []) {
-      const key = r.supplier?.trim() || "غير معروف";
+      const key = r.supplier?.trim() || t("dash.unknown");
       const g =
         map.get(key) ?? {
           supplier: key,
@@ -158,7 +140,7 @@ function ArchiveMonthPage() {
     if (!deleteTarget) return;
     const { error: err } = await supabase.from("invoices").delete().eq("id", deleteTarget.id);
     if (err) {
-      setError("تعذّر حذف الفاتورة");
+      setError(t("arc.deleteError"));
     } else {
       setRows((prev) => (prev ?? []).filter((r) => r.id !== deleteTarget.id));
     }
@@ -171,33 +153,34 @@ function ArchiveMonthPage() {
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-brand text-base leading-none font-extrabold text-primary-foreground">
-              دف
+              {t("brand.mark")}
             </div>
             <div className="leading-none">
-              <div className="text-[15px] font-extrabold tracking-tight">أرشيف {monthLabel(month)}</div>
-              <div className="mt-0.5 text-[10px] text-muted-foreground">
-                الموردون وإجمالي المشتريات
-              </div>
+              <div className="text-[15px] font-extrabold tracking-tight">{t("arc.title",{month:monthLabel(lang,month)})}</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">{t("arc.sub")}</div>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
           <Link
             to="/dashboard"
             className="rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold ring-1 ring-black/5 transition-colors hover:bg-brand-soft/60"
           >
-            ← العودة للوحة التحميل
+            ← {t("arc.back")}
           </Link>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-5">
         {noAuth ? (
           <div className="rounded-2xl bg-surface p-5 text-center ring-1 ring-black/5">
-            <div className="text-[14px] font-extrabold">سجّل الدخول لعرض أرشيفك</div>
+            <div className="text-[14px] font-extrabold">{t("arc.loginToView")}</div>
             <Link
               to="/login"
               className="mt-3 inline-block rounded-xl bg-brand px-4 py-2.5 text-[13px] font-extrabold text-primary-foreground"
             >
-              تسجيل الدخول
+              {t("nav.login")}
             </Link>
           </div>
         ) : error ? (
@@ -206,27 +189,27 @@ function ArchiveMonthPage() {
           </div>
         ) : rows === null ? (
           <div className="rounded-2xl bg-surface p-5 text-center text-[12px] text-muted-foreground ring-1 ring-black/5">
-            جارٍ التحميل…
+            {t("arc.loading")}
           </div>
         ) : rows.length === 0 ? (
           <div className="rounded-2xl bg-surface p-5 text-center text-[12px] text-muted-foreground ring-1 ring-black/5">
-            لا توجد فواتير محفوظة في {monthLabel(month)}.
+            {t("arc.empty",{month:monthLabel(lang,month)})}
           </div>
         ) : (
           <>
             <div className="mb-4 grid grid-cols-3 gap-2">
               <div className="rounded-2xl bg-surface p-3 text-center ring-1 ring-black/5">
-                <div className="text-[10px] text-muted-foreground">عدد الفواتير</div>
+                <div className="text-[10px] text-muted-foreground">{t("arc.count")}</div>
                 <div className="mt-1 text-[16px] font-extrabold tabular-nums">{rows.length}</div>
               </div>
               <div className="rounded-2xl bg-surface p-3 text-center ring-1 ring-black/5">
-                <div className="text-[10px] text-muted-foreground">إجمالي المشتريات</div>
+                <div className="text-[10px] text-muted-foreground">{t("arc.totalPurchases")}</div>
                 <div className="mt-1 text-[16px] font-extrabold text-brand tabular-nums">
                   {nf.format(totals.total)}
                 </div>
               </div>
               <div className="rounded-2xl bg-surface p-3 text-center ring-1 ring-black/5">
-                <div className="text-[10px] text-muted-foreground">إجمالي الضريبة</div>
+                <div className="text-[10px] text-muted-foreground">{t("arc.totalTax")}</div>
                 <div className="mt-1 text-[16px] font-extrabold tabular-nums">
                   {nf.format(totals.tax)}
                 </div>
@@ -234,14 +217,14 @@ function ArchiveMonthPage() {
             </div>
 
             <div className="mb-2 text-[11px] font-semibold text-brand">
-              {rows.length} فاتورة · {groups.length} مورّد
+              {t("arc.summary",{n:rows.length,m:groups.length})}
             </div>
 
             <div className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
               <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 border-b border-border px-3 py-2 text-[10px] font-semibold text-muted-foreground">
-                <div className="text-right">المورد</div>
-                <div className="text-center">التاريخ</div>
-                <div className="text-left">الإجمالي</div>
+                <div className="text-start">{t("dash.supplier")}</div>
+                <div className="text-center">{t("col.date")}</div>
+                <div className="text-end">{t("col.total")}</div>
                 <div className="w-8"></div>
               </div>
               {rows.map((r) => (
@@ -251,7 +234,7 @@ function ArchiveMonthPage() {
                 >
                   <div className="min-w-0">
                     <div className="truncate text-[12px] font-bold">
-                      {r.supplier?.trim() || "غير معروف"}
+                      {r.supplier?.trim() || t("dash.unknown")}
                     </div>
                     <div className="truncate text-[10px] text-muted-foreground">
                       {r.invoice_number?.trim() || r.file_name}
@@ -268,8 +251,8 @@ function ArchiveMonthPage() {
                   </div>
                   <button
                     type="button"
-                    aria-label={`حذف فاتورة ${r.file_name}`}
-                    title="حذف من الأرشيف (لا يُعاد الرصيد المستهلك)"
+                    aria-label={t("arc.deleteHint")}
+                    title={t("arc.deleteHint")}
                     onClick={() => setDeleteTarget(r)}
                     className="grid w-8 place-items-center rounded-lg py-1 text-[13px] font-black leading-none text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                   >
@@ -282,7 +265,7 @@ function ArchiveMonthPage() {
         )}
 
         <p className="mt-5 text-center text-[10px] text-muted-foreground">
-          دفتر · الأرشيف الشهري للفواتير
+          {t("arc.footer")}
         </p>
       </main>
 
@@ -290,24 +273,20 @@ function ArchiveMonthPage() {
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       >
-        <AlertDialogContent dir="rtl">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>حذف الفاتورة من الأرشيف</AlertDialogTitle>
+            <AlertDialogTitle>{t("arc.delTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد أنك تريد حذف{" "}
-              <span className="font-bold text-foreground">
-                {deleteTarget?.file_name ?? "هذه الفاتورة"}
-              </span>
-              ؟ لا يمكن التراجع عن هذا الإجراء، ولن يُعاد الرصيد المستهلك.
+              {t("arc.delBody",{name:deleteTarget?.file_name ?? ""})}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-2">
-            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>{t("arc.delCancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              نعم، احذف
+              {t("arc.delConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
