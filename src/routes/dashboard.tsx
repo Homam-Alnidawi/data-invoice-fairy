@@ -10,6 +10,8 @@ import {
   type InvoiceItem,
 } from "@/lib/invoices.functions";
 import { getUsageState, type UsageState } from "@/lib/usage.functions";
+import { trackActivity } from "@/lib/activity.functions";
+import { amIAdmin } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -125,6 +127,24 @@ function Index() {
   }, []);
 
   // جلسة المستخدم (اختيارية — الزائر يستطيع التجربة بدون حساب)
+  const trackFn = useServerFn(trackActivity);
+  const amIAdminFn = useServerFn(amIAdmin);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    let alive = true;
+    void amIAdminFn()
+      .then((ok) => alive && setIsAdmin(ok))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [user, amIAdminFn]);
+
   useEffect(() => {
     let alive = true;
     void supabase.auth.getUser().then(({ data }) => {
@@ -204,15 +224,18 @@ function Index() {
   );
 
   const signOut = useCallback(async () => {
+    void trackFn({ data: { action: "logout" } }).catch(() => undefined);
     await supabase.auth.signOut();
     setJobs([]);
     void navigate({ to: "/", replace: true });
-  }, [navigate]);
+  }, [navigate, trackFn]);
+
 
   const handleFiles = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
       let files = Array.from(fileList);
+      void trackFn({ data: { action: "file_upload", count: files.length } }).catch(() => undefined);
 
       const remaining = usage ? Math.max(0, usage.limit - usage.used) : files.length;
       if (usage && remaining === 0) {
@@ -411,6 +434,7 @@ function Index() {
     if (!hasData()) return;
     download(csvBlob(INVOICES_HEAD, buildInvoiceRows()), "الفواتير.csv");
     setTimeout(() => download(csvBlob(ITEMS_HEAD, buildItemRows()), "البنود.csv"), 600);
+    void trackFn({ data: { action: "csv_export" } }).catch(() => undefined);
     toast.success("تم تصدير ملفين: الفواتير + البنود");
   };
 
@@ -429,6 +453,7 @@ function Index() {
 
   const exportExcel = async () => {
     if (!hasData()) return;
+    void trackFn({ data: { action: "excel_export" } }).catch(() => undefined);
     const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
 
@@ -454,6 +479,7 @@ function Index() {
 
   const exportPdf = () => {
     if (!hasData()) return;
+    void trackFn({ data: { action: "pdf_export" } }).catch(() => undefined);
     const win = window.open("", "_blank");
     if (!win) {
       toast.error("امنع حظر النوافذ المنبثقة لتصدير PDF");
@@ -582,6 +608,14 @@ function Index() {
                         {user.email}
                       </div>
                     </div>
+                    {isAdmin && (
+                      <Link
+                        to="/admin"
+                        className="block border-b border-border px-3 py-2 text-[12px] font-bold text-brand hover:bg-brand-soft/40"
+                      >
+                        لوحة الإدارة
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={() => void signOut()}

@@ -118,9 +118,42 @@ export type QuotaTicket =
   | { allowed: false; kind: "guest" | "free" | "pro"; used: number; limit: number };
 
 /** Consumes one invoice from the caller's quota, server-side. */
+export class DisabledAccountError extends Error {
+  constructor() {
+    super("ACCOUNT_DISABLED");
+  }
+}
+
+/** يسجّل نتيجة معالجة ناجحة في إحصائيات المستخدم. */
+export async function recordProcessed(invoices = 1) {
+  const user = await currentUser();
+  if (!user) return;
+  const db = await admin();
+  await db.rpc("bump_usage", {
+    _user_id: user.id,
+    _processing_operations: 1,
+    _processing_requests: 1,
+    _invoices_processed: invoices,
+  } as never);
+  await db.from("activity_logs").insert({ user_id: user.id, action: "invoice_processed" });
+}
+
 export async function consumeQuota(): Promise<QuotaTicket> {
   const db = await admin();
   const user = await currentUser();
+
+  if (user) {
+    const { data: prof } = await db
+      .from("profiles")
+      .select("status")
+      .eq("id", user.id)
+      .maybeSingle();
+    if ((prof as { status?: string } | null)?.status === "disabled") {
+      throw new DisabledAccountError();
+    }
+  }
+
+
 
   if (!user) {
     const fp = await guestFingerprint();
