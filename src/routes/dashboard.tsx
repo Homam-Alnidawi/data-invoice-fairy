@@ -875,34 +875,34 @@ function Index() {
         </section>
 
         <section className="mt-6">
-          <div className="mb-2 text-[11px] font-semibold text-brand">(ج) التقرير والمجموع</div>
+          <div className="mb-2 text-[11px] font-semibold text-brand">{t("dash.secC")}</div>
           <div className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
             <div className="bg-ink p-4 text-ink-foreground">
-              <div className="text-[11px] opacity-70">إجمالي المشتريات (شامل الضريبة)</div>
+              <div className="text-[11px] opacity-70">{t("dash.totalPurchases")}</div>
               <div className="mt-1 text-[30px] leading-none font-extrabold tracking-tight tabular-nums">
                 {nf.format(totals.total)}
                 <span className="text-[15px] font-bold opacity-80">
                   {" "}
-                  {currencySymbol(totals.currency) || "عملة غير محددة"}
+                  {currencySymbol(totals.currency) || t("dash.currencyUnknown")}
                 </span>
 
               </div>
               <div className="mt-1.5 text-[10px] opacity-60">
-                {parsed.length} فاتورة · {totals.suppliers.length} موردًا · {totals.items} بندًا
+                {t("dash.invCount", { n: parsed.length })} · {t("dash.supCount", { n: totals.suppliers.length })} · {t("dash.itemsCount", { n: totals.items })}
               </div>
             </div>
 
             <div className="space-y-2.5 p-3">
               <div className="flex items-center justify-between text-[13px]">
-                <span className="text-muted-foreground">المجموع قبل الضريبة</span>
+                <span className="text-muted-foreground">{t("dash.net")}</span>
                 <span className="font-bold tabular-nums">{nf.format(totals.subtotal)}</span>
               </div>
               <div className="flex items-center justify-between text-[13px]">
-                <span className="text-muted-foreground">ضريبة القيمة المضافة</span>
+                <span className="text-muted-foreground">{t("dash.vat")}</span>
                 <span className="font-bold text-brand tabular-nums">{nf.format(totals.tax)}</span>
               </div>
               <div className="flex items-center justify-between border-t border-border pt-2.5 text-[13px]">
-                <span className="font-semibold">الإجمالي</span>
+                <span className="font-semibold">{t("dash.grandTotal")}</span>
                 <span className="font-extrabold text-brand tabular-nums">
                   {nf.format(totals.total)}
                 </span>
@@ -911,7 +911,7 @@ function Index() {
               {totals.suppliers.length > 0 && (
                 <div className="pt-1">
                   <div className="mb-1.5 text-[11px] font-semibold text-muted-foreground">
-                    أعلى الموردين
+                    {t("dash.topSuppliers")}
                   </div>
                   <div className="space-y-1.5">
                     {totals.suppliers.slice(0, 5).map(([name, amount]) => (
