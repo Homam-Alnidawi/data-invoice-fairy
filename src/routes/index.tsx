@@ -71,21 +71,23 @@ function Landing() {
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link
-              to="/signup"
+              to="/dashboard"
               className="rounded-xl bg-brand px-5 py-2.5 text-[14px] font-extrabold text-primary-foreground"
             >
-              إنشاء حساب مجاني
+              جرب مجانًا
             </Link>
             <Link
-              to="/login"
+              to="/pricing"
               className="rounded-xl border border-border px-5 py-2.5 text-[14px] font-extrabold"
             >
-              تسجيل الدخول
+              الأسعار
             </Link>
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            استخدام الخدمة يتطلّب تسجيل الدخول — بياناتك خاصة بحسابك وحدك.
+            جرّب فاتورتين مجانًا بدون حساب · حساب مجاني = 5 فواتير شهريًا · Pro = 1000 فاتورة
+            شهريًا.
           </p>
+
         </section>
 
         <section className="mt-10 grid gap-3 sm:grid-cols-2">
