@@ -500,33 +500,70 @@ function Index() {
               </div>
             </div>
           </div>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              className="max-w-[150px] truncate rounded-full bg-brand-soft/60 px-3 py-1 text-[11px] font-semibold"
-              dir="ltr"
-            >
-              {user.email}
-            </button>
-            {menuOpen && (
-              <div className="absolute left-0 z-30 mt-2 w-44 overflow-hidden rounded-xl bg-surface text-right shadow-lg ring-1 ring-black/10">
-                <div className="border-b border-border px-3 py-2">
-                  <div className="text-[10px] text-muted-foreground">الحساب</div>
-                  <div dir="ltr" className="truncate text-[11px] font-semibold">
-                    {user.email}
-                  </div>
-                </div>
+          <div className="flex items-center gap-2">
+            {usage && (
+              <span className="rounded-full bg-brand-soft/60 px-2.5 py-1 text-[10px] font-bold">
+                {usage.kind === "guest" && `التجربة المجانية: ${usage.used} / ${usage.limit}`}
+                {usage.kind === "free" &&
+                  `المتبقي هذا الشهر: ${Math.max(0, usage.limit - usage.used)} / ${usage.limit}`}
+                {usage.kind === "pro" && `المستخدمة: ${usage.used} / ${usage.limit}`}
+              </span>
+            )}
+            {usage && usage.kind !== "pro" ? (
+              <Link
+                to="/pricing"
+                className="shrink-0 rounded-full bg-brand px-2.5 py-1 text-[10px] font-bold text-primary-foreground"
+              >
+                الترقية إلى Pro
+              </Link>
+            ) : (
+              usage && (
+                <Link
+                  to="/pricing"
+                  className="shrink-0 rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold text-ink-foreground"
+                >
+                  إدارة الاشتراك
+                </Link>
+              )
+            )}
+            {user ? (
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => void signOut()}
-                  className="w-full px-3 py-2 text-right text-[12px] font-bold text-foreground hover:bg-brand-soft/40"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="max-w-[130px] truncate rounded-full bg-surface px-3 py-1 text-[11px] font-semibold ring-1 ring-black/5"
+                  dir="ltr"
                 >
-                  تسجيل الخروج
+                  {user.email}
                 </button>
+                {menuOpen && (
+                  <div className="absolute left-0 z-30 mt-2 w-44 overflow-hidden rounded-xl bg-surface text-right shadow-lg ring-1 ring-black/10">
+                    <div className="border-b border-border px-3 py-2">
+                      <div className="text-[10px] text-muted-foreground">الحساب</div>
+                      <div dir="ltr" className="truncate text-[11px] font-semibold">
+                        {user.email}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void signOut()}
+                      className="w-full px-3 py-2 text-right text-[12px] font-bold text-foreground hover:bg-brand-soft/40"
+                    >
+                      تسجيل الخروج
+                    </button>
+                  </div>
+                )}
               </div>
+            ) : (
+              <Link
+                to="/login"
+                className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold text-foreground"
+              >
+                تسجيل الدخول
+              </Link>
             )}
           </div>
+
         </div>
       </header>
 
