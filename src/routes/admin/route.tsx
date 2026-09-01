@@ -9,7 +9,30 @@ import { BarChart3, CreditCard, Home, LayoutDashboard, LogOut, Menu, Settings, U
 export const Route = createFileRoute("/admin")({
   ssr: false,
   component: AdminLayout,
+  errorComponent: AdminError,
 });
+
+function AdminError({ error }: { error: Error }) {
+  const forbidden = /Forbidden|Unauthorized/i.test(error.message);
+  return (
+    <div className="grid min-h-screen place-items-center px-6">
+      <div className="max-w-sm rounded-xl border border-border bg-card p-6 text-center">
+        <h1 className="text-lg font-black">{forbidden ? "غير مصرّح" : "حدث خطأ"}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {forbidden
+            ? "هذه الصفحة مخصّصة لمديري النظام فقط. سجّل الدخول بحساب المدير ثم أعد المحاولة."
+            : error.message}
+        </p>
+        <Link
+          to="/dashboard"
+          className="mt-4 inline-block rounded-lg bg-foreground px-4 py-2 text-sm font-bold text-background"
+        >
+          العودة إلى لوحتي
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 const NAV = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
