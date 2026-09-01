@@ -30,11 +30,21 @@ export async function isCallerAdmin(): Promise<boolean> {
   }
 }
 
+export type AuditExtra = {
+  oldPlan?: string | null;
+  newPlan?: string | null;
+  oldStatus?: string | null;
+  newStatus?: string | null;
+  durationDays?: number | null;
+  reason?: string | null;
+};
+
 export async function audit(
   actor: AdminIdentity,
   action: string,
   target?: { id?: string | null; email?: string | null },
   metadata: Record<string, unknown> = {},
+  extra: AuditExtra = {},
 ) {
   const db = await adminClient();
   await db.from("admin_audit_logs").insert({
@@ -44,8 +54,15 @@ export async function audit(
     target_user_id: target?.id ?? null,
     target_email: target?.email ?? null,
     metadata: metadata as never,
+    old_plan: extra.oldPlan ?? null,
+    new_plan: extra.newPlan ?? null,
+    old_status: extra.oldStatus ?? null,
+    new_status: extra.newStatus ?? null,
+    duration_days: extra.durationDays ?? null,
+    reason: extra.reason ?? null,
   });
 }
+
 
 export async function logActivity(
   userId: string | null,
