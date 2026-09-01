@@ -212,6 +212,78 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_provider_secrets: {
+        Row: {
+          created_at: string
+          environment: string
+          key: string
+          provider: string
+          updated_at: string
+          updated_by: string | null
+          value_encrypted: string
+        }
+        Insert: {
+          created_at?: string
+          environment: string
+          key: string
+          provider: string
+          updated_at?: string
+          updated_by?: string | null
+          value_encrypted: string
+        }
+        Update: {
+          created_at?: string
+          environment?: string
+          key?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+          value_encrypted?: string
+        }
+        Relationships: []
+      }
+      payment_provider_settings: {
+        Row: {
+          config: Json
+          created_at: string
+          currency: string
+          display_name: string
+          enabled: boolean
+          environment: string
+          last_error: string | null
+          last_tested_at: string | null
+          provider: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          currency?: string
+          display_name: string
+          enabled?: boolean
+          environment?: string
+          last_error?: string | null
+          last_tested_at?: string | null
+          provider: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          currency?: string
+          display_name?: string
+          enabled?: boolean
+          environment?: string
+          last_error?: string | null
+          last_tested_at?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       plans: {
         Row: {
           billing_interval: string

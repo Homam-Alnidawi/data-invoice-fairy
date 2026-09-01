@@ -4,6 +4,10 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { getUsageState, type UsageState } from "@/lib/usage.functions";
 import { listPublicPlans, type Plan } from "@/lib/subscriptions.functions";
+import {
+  listAvailablePaymentProviders,
+  type PublicProvider,
+} from "@/lib/payments.functions";
 
 export const Route = createFileRoute("/pricing")({
   ssr: false,
@@ -39,8 +43,11 @@ const PRO_FEATURES = [
 function Pricing() {
   const usageFn = useServerFn(getUsageState);
   const plansFn = useServerFn(listPublicPlans);
+  const providersFn = useServerFn(listAvailablePaymentProviders);
   const [usage, setUsage] = useState<UsageState | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [providers, setProviders] = useState<PublicProvider[]>([]);
+  const [provider, setProvider] = useState<string | null>(null);
 
   useEffect(() => {
     void usageFn({})
@@ -49,7 +56,13 @@ function Pricing() {
     void plansFn()
       .then(setPlans)
       .catch(() => undefined);
-  }, [usageFn, plansFn]);
+    void providersFn()
+      .then((list) => {
+        setProviders(list);
+        setProvider(list[0]?.id ?? null);
+      })
+      .catch(() => undefined);
+  }, [usageFn, plansFn, providersFn]);
 
   const isPro = usage?.kind === "pro";
   const freePlan = plans.find((p) => p.code === "free");
@@ -59,7 +72,12 @@ function Pricing() {
   const proFeatures = proPlan?.features.length ? proPlan.features : PRO_FEATURES;
 
   const subscribe = () => {
-    toast.info("الدفع عبر Stripe قيد التفعيل — سيتم تحويلك إلى صفحة الدفع فور تفعيله.");
+    const chosen = providers.find((p) => p.id === provider);
+    if (!chosen) {
+      toast.error("اختر طريقة دفع متاحة أولًا.");
+      return;
+    }
+    toast.info(`سيتم تحويلك إلى ${chosen.displayName} لإتمام الدفع.`);
   };
 
   return (
@@ -149,13 +167,43 @@ function Pricing() {
                 أنت مشترك في Pro — استمتع بكامل المزايا
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={subscribe}
-                className="w-full rounded-xl bg-brand py-3.5 text-[14px] font-extrabold text-primary-foreground"
-              >
-                اشترك الآن — {money(proPlan)}/شهر
-              </button>
+              <>
+                <div className="mb-3 rounded-xl border border-border p-3">
+                  <div className="text-[12px] font-bold">طريقة الدفع</div>
+                  {providers.length === 0 ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      لا توجد بوابة دفع مفعّلة حاليًا — تواصل معنا لإتمام الاشتراك.
+                    </p>
+                  ) : (
+                    <div className="mt-2 space-y-1.5">
+                      {providers.map((pr) => (
+                        <label key={pr.id} className="flex items-center gap-2 text-[13px]">
+                          <input
+                            type="radio"
+                            name="payment-provider"
+                            checked={provider === pr.id}
+                            onChange={() => setProvider(pr.id)}
+                          />
+                          <span className="font-semibold">{pr.displayName}</span>
+                          {!pr.recurring && (
+                            <span className="text-[10px] text-muted-foreground">
+                              (دفع لدورة واحدة — بدون تجديد تلقائي)
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={subscribe}
+                  disabled={providers.length === 0}
+                  className="w-full rounded-xl bg-brand py-3.5 text-[14px] font-extrabold text-primary-foreground disabled:opacity-50"
+                >
+                  اشترك الآن — {money(proPlan)}/شهر
+                </button>
+              </>
             )}
             {usage && usage.kind === "guest" && (
               <p className="mt-2 text-center text-[11px] text-muted-foreground">
