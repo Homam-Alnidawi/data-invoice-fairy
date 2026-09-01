@@ -11,6 +11,13 @@ export type AdminUserRow = {
   lastLoginAt: string | null;
   lastActivity: string | null;
   plan: string;
+  subscriptionStatus: string;
+  billingType: string;
+  paymentProvider: string | null;
+  subscriptionStart: string | null;
+  subscriptionEnd: string | null;
+  invoiceLimit: number;
+  invoiceUsage: number;
   processingOperations: number;
   invoicesProcessed: number;
   tempUploads: number;
@@ -115,10 +122,13 @@ export const listUsers = createServerFn({ method: "GET" }).handler(
   async (): Promise<AdminUserRow[]> => {
     const { assertAdmin, db } = await ctx();
     await assertAdmin();
+    await db.rpc("expire_due_subscriptions" as never);
 
     const { data: profiles } = await db
       .from("profiles")
-      .select("id, email, name, status, plan, created_at, last_activity, last_login_at");
+      .select(
+        "id, email, name, status, plan, created_at, last_activity, last_login_at, subscription_status, billing_type, payment_provider, subscription_start, subscription_end, monthly_invoice_limit, monthly_invoice_usage",
+      );
     const { data: roles } = await db.from("user_roles").select("user_id, role");
     const { data: stats } = await db.from("user_usage_stats").select("*");
 
@@ -145,6 +155,13 @@ export const listUsers = createServerFn({ method: "GET" }).handler(
         lastLoginAt: au?.last_sign_in_at ?? p.last_login_at ?? null,
         lastActivity: p.last_activity ?? st?.last_activity ?? null,
         plan: p.plan ?? "free",
+        subscriptionStatus: p.subscription_status ?? "inactive",
+        billingType: (p as { billing_type?: string }).billing_type ?? "free",
+        paymentProvider: (p as { payment_provider?: string | null }).payment_provider ?? null,
+        subscriptionStart: (p as { subscription_start?: string | null }).subscription_start ?? null,
+        subscriptionEnd: (p as { subscription_end?: string | null }).subscription_end ?? null,
+        invoiceLimit: p.monthly_invoice_limit ?? 5,
+        invoiceUsage: p.monthly_invoice_usage ?? 0,
         processingOperations: st?.processing_operations ?? 0,
         invoicesProcessed: st?.invoices_processed ?? 0,
         tempUploads: st?.temp_uploads ?? 0,
@@ -310,6 +327,7 @@ export const deleteUser = createServerFn({ method: "POST" })
     await db.from("activity_logs").delete().eq("user_id", data.userId);
     await db.from("user_usage_stats").delete().eq("user_id", data.userId);
     await db.from("user_roles").delete().eq("user_id", data.userId);
+    await db.from("subscriptions").delete().eq("user_id", data.userId);
     await db.from("profiles").delete().eq("id", data.userId);
 
     const { error } = await db.auth.admin.deleteUser(data.userId);
@@ -325,6 +343,12 @@ export const deleteUser = createServerFn({ method: "POST" })
 export type AuditRow = {
   id: string;
   action: string;
+  oldPlan: string | null;
+  newPlan: string | null;
+  oldStatus: string | null;
+  newStatus: string | null;
+  durationDays: number | null;
+  reason: string | null;
   adminEmail: string | null;
   targetUserId: string | null;
   targetEmail: string | null;
@@ -337,12 +361,20 @@ export const listAuditLog = createServerFn({ method: "GET" }).handler(
     await assertAdmin();
     const { data } = await db
       .from("admin_audit_logs")
-      .select("id, action, admin_email, target_user_id, target_email, created_at")
+      .select(
+        "id, action, admin_email, target_user_id, target_email, created_at, old_plan, new_plan, old_status, new_status, duration_days, reason",
+      )
       .order("created_at", { ascending: false })
       .limit(200);
     return (data ?? []).map((r) => ({
       id: r.id,
       action: r.action,
+      oldPlan: r.old_plan,
+      newPlan: r.new_plan,
+      oldStatus: r.old_status,
+      newStatus: r.new_status,
+      durationDays: r.duration_days,
+      reason: r.reason,
       adminEmail: r.admin_email,
       targetUserId: r.target_user_id,
       targetEmail: r.target_email,
