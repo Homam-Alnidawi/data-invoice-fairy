@@ -124,15 +124,6 @@ function Pricing() {
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-surface p-4 ring-1 ring-black/5">
-            <div className="text-[13px] font-extrabold">Guest</div>
-            <div className="mt-1 text-[20px] font-extrabold">{t("pr.free")}</div>
-            <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-              <li>• {t("pr.guest.f1")}</li>
-              <li>• {t("pr.guest.f2")}</li>
-              <li>• {t("pr.guest.f3")}</li>
-            </ul>
-          </div>
-          <div className="rounded-2xl bg-surface p-4 ring-1 ring-black/5">
             <div className="text-[13px] font-extrabold">Free</div>
             <div className="mt-1 text-[20px] font-extrabold">{t("pr.free")}</div>
             <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
@@ -152,7 +143,32 @@ function Pricing() {
               <li>• {t("pr.pro.f3")}</li>
             </ul>
           </div>
+          <div className="rounded-2xl bg-surface p-4 ring-1 ring-brand/40">
+            <div className="text-[13px] font-extrabold">Business</div>
+            <div className="mt-1 text-[20px] font-extrabold">
+              {money(businessPlan)}{" "}
+              <span className="text-[12px] font-bold text-muted-foreground">
+                {t("pr.perMonth")}
+              </span>
+            </div>
+            <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+              {businessFeatures.map((f) => (
+                <li key={f}>• {f}</li>
+              ))}
+            </ul>
+            {!isPro && (
+              <button
+                type="button"
+                onClick={() => void subscribe("business")}
+                disabled={providers.length === 0 || starting || !businessPlan}
+                className="mt-3 w-full rounded-xl bg-brand py-2.5 text-[12px] font-extrabold text-primary-foreground disabled:opacity-50"
+              >
+                {t("pr.subscribe", { price: money(businessPlan) })}
+              </button>
+            )}
+          </div>
         </div>
+
 
         <section className="mt-6 overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
           <div className="bg-ink p-5 text-ink-foreground">
