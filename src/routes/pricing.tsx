@@ -63,13 +63,22 @@ function Pricing() {
   const isPro = usage?.kind === "pro";
   const freePlan = plans.find((p) => p.code === "free");
   const proPlan = plans.find((p) => p.code === "pro");
+  const businessPlan = plans.find((p) => p.code === "business");
   const money = (p?: Plan) =>
     p ? `$${(p.priceCents / 100).toLocaleString("en-US")}` : "—";
   const proFeatures = proPlan?.features.length
     ? proPlan.features
     : ["pr.feature1","pr.feature2","pr.feature3","pr.feature4","pr.feature5","pr.feature6","pr.feature7"].map((k) => t(k));
 
-  const subscribe = async () => {
+  const businessFeatures = businessPlan?.features.length
+    ? businessPlan.features
+    : [
+        t("pr.business.f1", { n: businessPlan?.invoiceLimit ?? 2000 }),
+        t("pr.business.f2"),
+        t("pr.business.f3"),
+      ];
+
+  const subscribe = async (planCode = "pro") => {
     const chosen = providers.find((p) => p.id === provider);
     if (!chosen) {
       toast.error(t("pr.toastChoose"));
@@ -81,7 +90,7 @@ function Pricing() {
     }
     setStarting(true);
     try {
-      const res = await checkoutFn({ data: { provider: chosen.id, plan: "pro" } });
+      const res = await checkoutFn({ data: { provider: chosen.id, plan: planCode } });
       toast.success(t("pr.toastRedirect",{name:chosen.displayName}));
       window.location.href = res.url;
     } catch (e) {
@@ -224,7 +233,7 @@ function Pricing() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => void subscribe()}
+                  onClick={() => void subscribe("pro")}
                   disabled={providers.length === 0 || starting}
                   className="w-full rounded-xl bg-brand py-3.5 text-[14px] font-extrabold text-primary-foreground disabled:opacity-50"
                 >
