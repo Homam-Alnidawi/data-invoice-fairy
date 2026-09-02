@@ -9,7 +9,7 @@ import {
   type PublicProvider,
 } from "@/lib/payments.functions";
 import { createCheckoutSession } from "@/lib/checkout.functions";
-import { LanguageSwitcher, useI18n } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/pricing")({
   ssr: false,
@@ -63,13 +63,22 @@ function Pricing() {
   const isPro = usage?.kind === "pro";
   const freePlan = plans.find((p) => p.code === "free");
   const proPlan = plans.find((p) => p.code === "pro");
+  const businessPlan = plans.find((p) => p.code === "business");
   const money = (p?: Plan) =>
     p ? `$${(p.priceCents / 100).toLocaleString("en-US")}` : "—";
   const proFeatures = proPlan?.features.length
     ? proPlan.features
     : ["pr.feature1","pr.feature2","pr.feature3","pr.feature4","pr.feature5","pr.feature6","pr.feature7"].map((k) => t(k));
 
-  const subscribe = async () => {
+  const businessFeatures = businessPlan?.features.length
+    ? businessPlan.features
+    : [
+        t("pr.business.f1", { n: businessPlan?.invoiceLimit ?? 2000 }),
+        t("pr.business.f2"),
+        t("pr.business.f3"),
+      ];
+
+  const subscribe = async (planCode = "pro") => {
     const chosen = providers.find((p) => p.id === provider);
     if (!chosen) {
       toast.error(t("pr.toastChoose"));
@@ -81,7 +90,7 @@ function Pricing() {
     }
     setStarting(true);
     try {
-      const res = await checkoutFn({ data: { provider: chosen.id, plan: "pro" } });
+      const res = await checkoutFn({ data: { provider: chosen.id, plan: planCode } });
       toast.success(t("pr.toastRedirect",{name:chosen.displayName}));
       window.location.href = res.url;
     } catch (e) {
@@ -93,7 +102,7 @@ function Pricing() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/92 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <Link to="/" className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-brand text-base leading-none font-extrabold text-primary-foreground">
               {t("brand.mark")}
@@ -104,7 +113,6 @@ function Pricing() {
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <LanguageSwitcher />
             <Link
               to="/dashboard"
               className="rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold ring-1 ring-black/5"
@@ -125,15 +133,6 @@ function Pricing() {
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-surface p-4 ring-1 ring-black/5">
-            <div className="text-[13px] font-extrabold">Guest</div>
-            <div className="mt-1 text-[20px] font-extrabold">{t("pr.free")}</div>
-            <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-              <li>• {t("pr.guest.f1")}</li>
-              <li>• {t("pr.guest.f2")}</li>
-              <li>• {t("pr.guest.f3")}</li>
-            </ul>
-          </div>
-          <div className="rounded-2xl bg-surface p-4 ring-1 ring-black/5">
             <div className="text-[13px] font-extrabold">Free</div>
             <div className="mt-1 text-[20px] font-extrabold">{t("pr.free")}</div>
             <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
@@ -153,7 +152,32 @@ function Pricing() {
               <li>• {t("pr.pro.f3")}</li>
             </ul>
           </div>
+          <div className="rounded-2xl bg-surface p-4 ring-1 ring-brand/40">
+            <div className="text-[13px] font-extrabold">Business</div>
+            <div className="mt-1 text-[20px] font-extrabold">
+              {money(businessPlan)}{" "}
+              <span className="text-[12px] font-bold text-muted-foreground">
+                {t("pr.perMonth")}
+              </span>
+            </div>
+            <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+              {businessFeatures.map((f) => (
+                <li key={f}>• {f}</li>
+              ))}
+            </ul>
+            {!isPro && (
+              <button
+                type="button"
+                onClick={() => void subscribe("business")}
+                disabled={providers.length === 0 || starting || !businessPlan}
+                className="mt-3 w-full rounded-xl bg-brand py-2.5 text-[12px] font-extrabold text-primary-foreground disabled:opacity-50"
+              >
+                {t("pr.subscribe", { price: money(businessPlan) })}
+              </button>
+            )}
+          </div>
         </div>
+
 
         <section className="mt-6 overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
           <div className="bg-ink p-5 text-ink-foreground">
@@ -209,7 +233,7 @@ function Pricing() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => void subscribe()}
+                  onClick={() => void subscribe("pro")}
                   disabled={providers.length === 0 || starting}
                   className="w-full rounded-xl bg-brand py-3.5 text-[14px] font-extrabold text-primary-foreground disabled:opacity-50"
                 >

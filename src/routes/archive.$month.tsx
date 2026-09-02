@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { LanguageSwitcher, monthLabel, useI18n } from "@/lib/i18n";
+import { monthLabel, useI18n } from "@/lib/i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -150,7 +150,7 @@ function ArchiveMonthPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/92 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-brand text-base leading-none font-extrabold text-primary-foreground">
               {t("brand.mark")}
@@ -161,7 +161,6 @@ function ArchiveMonthPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <LanguageSwitcher />
           <Link
             to="/dashboard"
             className="rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold ring-1 ring-black/5 transition-colors hover:bg-brand-soft/60"
