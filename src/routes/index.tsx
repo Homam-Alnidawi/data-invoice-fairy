@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher, useI18n } from "@/lib/i18n";
 import { SiteFooter } from "@/components/site-footer";
 
 export const Route = createFileRoute("/")({
@@ -44,6 +44,7 @@ function Landing() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             <Link
               to="/login"
               className="rounded-full px-3 py-1.5 text-[12px] font-bold text-foreground"

@@ -1,8 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { getPublicSettings } from "@/lib/settings.functions";
-import { LANGS, useI18n, type Lang } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
 
 export const SUPPORT_EMAIL = "aiinvoice15@gmail.com";
 
@@ -38,15 +35,7 @@ const linkCls =
   "text-[13px] text-muted-foreground transition-colors hover:text-brand focus-visible:text-brand";
 
 export function SiteFooter() {
-  const { t, lang, setLang } = useI18n();
-  const settingsFn = useServerFn(getPublicSettings);
-  const [currency, setCurrency] = useState<string | null>(null);
-
-  useEffect(() => {
-    void settingsFn()
-      .then((s) => setCurrency((s as { defaultCurrency?: string } | null)?.defaultCurrency ?? null))
-      .catch(() => undefined);
-  }, [settingsFn]);
+  const { t } = useI18n();
 
   return (
     <footer className="mt-16 border-t border-border bg-surface">
@@ -119,58 +108,17 @@ export function SiteFooter() {
           </Column>
         </div>
 
-        <div className="mt-8 grid gap-6 border-t border-border pt-6 sm:grid-cols-2">
-          <div>
-            <h3 className="text-[11px] font-extrabold tracking-wide text-foreground uppercase">
-              {t("ft.payments")}
-            </h3>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <PayBadge>VISA</PayBadge>
-              <PayBadge>
-                <MastercardMark />
-                <span className="hidden sm:inline">Mastercard</span>
-              </PayBadge>
-              <PayBadge>Zain Cash</PayBadge>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-end gap-6 sm:justify-end">
-            <div>
-              <h3 className="text-[11px] font-extrabold tracking-wide text-foreground uppercase">
-                {t("ft.language")}
-              </h3>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {LANGS.map((l) => (
-                  <button
-                    key={l.code}
-                    type="button"
-                    onClick={() => setLang(l.code as Lang)}
-                    aria-pressed={lang === l.code}
-                    className={`rounded-lg border px-2.5 py-1.5 text-[12px] font-bold transition-colors ${
-                      lang === l.code
-                        ? "border-brand bg-brand text-primary-foreground"
-                        : "border-border bg-background text-muted-foreground hover:border-brand hover:text-foreground"
-                    }`}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {currency && (
-              <div>
-                <h3 className="text-[11px] font-extrabold tracking-wide text-foreground uppercase">
-                  {t("ft.currency")}
-                </h3>
-                <div
-                  dir="ltr"
-                  className="mt-3 inline-flex h-9 items-center rounded-lg border border-border bg-background px-3 text-[12px] font-extrabold"
-                >
-                  {currency}
-                </div>
-              </div>
-            )}
+        <div className="mt-8 border-t border-border pt-6">
+          <h3 className="text-[11px] font-extrabold tracking-wide text-foreground uppercase">
+            {t("ft.payments")}
+          </h3>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <PayBadge>VISA</PayBadge>
+            <PayBadge>
+              <MastercardMark />
+              <span className="hidden sm:inline">Mastercard</span>
+            </PayBadge>
+            <PayBadge>Zain Cash</PayBadge>
           </div>
         </div>
 
