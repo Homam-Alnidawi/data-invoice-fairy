@@ -44,6 +44,7 @@ function Landing() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             <Link
               to="/login"
               className="rounded-full px-3 py-1.5 text-[12px] font-bold text-foreground"
