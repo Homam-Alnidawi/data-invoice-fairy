@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher, useI18n } from "@/lib/i18n";
 import { SiteFooter } from "@/components/site-footer";
 
 export const Route = createFileRoute("/")({
