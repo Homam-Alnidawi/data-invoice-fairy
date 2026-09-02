@@ -491,9 +491,39 @@ function Index() {
       ${tableHtml(INVOICES_HEAD, buildInvoiceRows(), invFooter)}
       <h2>${t("dash.pdf.items")}</h2>
       ${tableHtml(ITEMS_HEAD, buildItemRows())}
+      <script>window.addEventListener("load",function(){setTimeout(function(){try{window.focus();window.print();}catch(e){}},400)});<\/script>
       </body></html>`;
 
-    // Mobile browsers block window.open popups, so print from a hidden iframe instead.
+    const isMobile =
+      typeof navigator !== "undefined" &&
+      /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
+
+    const openInTab = () => {
+      // Must stay inside the click gesture for mobile popup blockers.
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, "_blank");
+      if (!w) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.download = "report.html";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    };
+
+    if (isMobile) {
+      // iOS/Android ignore printing from hidden iframes: open a real tab the user can
+      // print or "Share → Save to Files" as PDF.
+      openInTab();
+      toast.info(t("dash.toast.pdfMobile"));
+      return;
+    }
+
     try {
       const frame = document.createElement("iframe");
       frame.setAttribute("aria-hidden", "true");
@@ -504,9 +534,6 @@ function Index() {
       doc.open();
       doc.write(html);
       doc.close();
-      const cleanup = () => {
-        setTimeout(() => frame.remove(), 1500);
-      };
       const run = () => {
         try {
           frame.contentWindow?.focus();
@@ -514,19 +541,12 @@ function Index() {
         } catch {
           /* ignore */
         }
-        cleanup();
+        setTimeout(() => frame.remove(), 2000);
       };
       if (doc.readyState === "complete") setTimeout(run, 300);
       else frame.onload = () => setTimeout(run, 300);
     } catch {
-      // last resort: download the report as an HTML file the user can print/save as PDF
-      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "report.html";
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      openInTab();
     }
   };
 
