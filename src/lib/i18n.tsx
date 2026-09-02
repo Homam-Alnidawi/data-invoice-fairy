@@ -1162,7 +1162,7 @@ export function I18nProvider({
 
   const t = useCallback(
     (key: string, vars?: Vars) => {
-      let s = DICTS[lang][key] ?? ar[key] ?? key;
+      let s = DICTS[lang][key] ?? DICTS.ar[key] ?? key;
       if (vars) {
         for (const [k, v] of Object.entries(vars)) {
           s = s.replaceAll(`{${k}}`, String(v));

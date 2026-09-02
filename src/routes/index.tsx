@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { LanguageSwitcher, useI18n } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
+import { SiteFooter } from "@/components/site-footer";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,7 +31,7 @@ function Landing() {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/92 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
@@ -43,7 +44,6 @@ function Landing() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <LanguageSwitcher />
             <Link
               to="/login"
               className="rounded-full px-3 py-1.5 text-[12px] font-bold text-foreground"
@@ -60,7 +60,7 @@ function Landing() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 pt-10 pb-20">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-10 pb-14">
         <section className="animate-rise">
           <div className="text-[11px] font-semibold text-brand">{t("landing.kicker")}</div>
           <h1 className="mt-1 text-[30px] leading-[1.15] font-extrabold tracking-tight text-balance">
@@ -105,6 +105,8 @@ function Landing() {
           </ol>
         </section>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

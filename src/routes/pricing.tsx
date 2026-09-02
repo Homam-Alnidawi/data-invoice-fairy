@@ -9,7 +9,7 @@ import {
   type PublicProvider,
 } from "@/lib/payments.functions";
 import { createCheckoutSession } from "@/lib/checkout.functions";
-import { LanguageSwitcher, useI18n } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/pricing")({
   ssr: false,
@@ -104,7 +104,6 @@ function Pricing() {
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <LanguageSwitcher />
             <Link
               to="/dashboard"
               className="rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold ring-1 ring-black/5"

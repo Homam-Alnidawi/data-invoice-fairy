@@ -12,7 +12,7 @@ import {
 import { getUsageState, type UsageState } from "@/lib/usage.functions";
 import { trackActivity } from "@/lib/activity.functions";
 import { amIAdmin } from "@/lib/admin.functions";
-import { LanguageSwitcher, monthLabel, useI18n } from "@/lib/i18n";
+import { monthLabel, useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -565,7 +565,6 @@ function Index() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <LanguageSwitcher />
             {usage && (
               <span className="rounded-full bg-brand-soft/60 px-2.5 py-1 text-[10px] font-bold">
                 {usage.kind === "guest" &&
