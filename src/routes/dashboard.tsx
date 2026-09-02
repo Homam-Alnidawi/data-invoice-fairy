@@ -582,7 +582,7 @@ function Index() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/92 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div className="animate-rise flex items-center gap-2">
             <div className="grid size-8 place-items-center rounded-lg bg-brand text-base leading-none font-extrabold text-primary-foreground">
               {t("brand.mark")}
@@ -1028,7 +1028,7 @@ function Index() {
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="leading-tight">
             <div className="text-[10px] text-muted-foreground">{t("dash.totalTax")}</div>
             <div className="text-[16px] font-extrabold tracking-tight tabular-nums">
