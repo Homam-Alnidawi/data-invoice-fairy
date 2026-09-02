@@ -480,26 +480,56 @@ function Index() {
   const exportPdf = () => {
     if (!hasData()) return;
     void trackFn({ data: { action: "pdf_export" } }).catch(() => undefined);
-    const win = window.open("", "_blank");
-    if (!win) {
-      toast.error(t("dash.toast.popup"));
-      return;
-    }
     const invFooter = `<tr><th colspan="4">${t("dash.grandTotal")}</th><th>${nf.format(totals.subtotal)}</th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th><th></th></tr>`;
-    win.document.write(`<html dir="${lang === "ar" ? "rtl" : "ltr"}" lang="${lang}"><head><meta charset="utf-8"/>
+    const html = `<!doctype html><html dir="${lang === "ar" ? "rtl" : "ltr"}" lang="${lang}"><head><meta charset="utf-8"/>
+      <meta name="viewport" content="width=device-width, initial-scale=1"/>
       <title>${t("dash.pdf.title")}</title>
-      <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px}th,td{border:1px solid #ccc;padding:4px;text-align:right}h1{font-size:18px}h2{font-size:14px;margin:12px 0 6px}</style>
+      <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px}th,td{border:1px solid #ccc;padding:4px;text-align:${lang === "ar" ? "right" : "left"}}h1{font-size:18px}h2{font-size:14px;margin:12px 0 6px}@page{size:A4 landscape;margin:10mm}</style>
       </head><body><h1>${t("dash.pdf.title")}</h1>
       <p>${t("dash.pdf.summary", { inv: parsed.length, items: totals.items, sub: nf.format(totals.subtotal), tax: nf.format(totals.tax), total: nf.format(totals.total) })}</p>
       <h2>${t("dash.pdf.invoices")}</h2>
       ${tableHtml(INVOICES_HEAD, buildInvoiceRows(), invFooter)}
       <h2>${t("dash.pdf.items")}</h2>
       ${tableHtml(ITEMS_HEAD, buildItemRows())}
-      </body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 400);
+      </body></html>`;
+
+    // Mobile browsers block window.open popups, so print from a hidden iframe instead.
+    try {
+      const frame = document.createElement("iframe");
+      frame.setAttribute("aria-hidden", "true");
+      frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0";
+      document.body.appendChild(frame);
+      const doc = frame.contentWindow?.document;
+      if (!doc) throw new Error("no-frame");
+      doc.open();
+      doc.write(html);
+      doc.close();
+      const cleanup = () => {
+        setTimeout(() => frame.remove(), 1500);
+      };
+      const run = () => {
+        try {
+          frame.contentWindow?.focus();
+          frame.contentWindow?.print();
+        } catch {
+          /* ignore */
+        }
+        cleanup();
+      };
+      if (doc.readyState === "complete") setTimeout(run, 300);
+      else frame.onload = () => setTimeout(run, 300);
+    } catch {
+      // last resort: download the report as an HTML file the user can print/save as PDF
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "report.html";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
   };
+
 
   const reviewJob = jobs.find((j) => j.id === reviewId) ?? null;
 
