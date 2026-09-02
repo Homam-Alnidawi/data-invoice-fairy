@@ -205,3 +205,55 @@
     max-width: 100%;
   }
 }
+
+/* Printable report overlay (used by the PDF export on mobile & desktop) */
+#print-report {
+  display: none;
+}
+
+@media print {
+  body.printing > *:not(#print-report) {
+    display: none !important;
+  }
+
+  body.printing {
+    overflow: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  body.printing #print-report {
+    display: block !important;
+    padding: 8px;
+    font-family: system-ui, sans-serif;
+    color: #000;
+    background: #fff;
+  }
+
+  #print-report table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    margin-bottom: 16px;
+  }
+
+  #print-report th,
+  #print-report td {
+    border: 1px solid #999;
+    padding: 3px;
+  }
+
+  #print-report h1 {
+    font-size: 18px;
+  }
+
+  #print-report h2 {
+    font-size: 14px;
+    margin: 10px 0 6px;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+}
