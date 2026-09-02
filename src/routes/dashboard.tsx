@@ -481,73 +481,44 @@ function Index() {
     if (!hasData()) return;
     void trackFn({ data: { action: "pdf_export" } }).catch(() => undefined);
     const invFooter = `<tr><th colspan="4">${t("dash.grandTotal")}</th><th>${nf.format(totals.subtotal)}</th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th><th></th></tr>`;
-    const html = `<!doctype html><html dir="${lang === "ar" ? "rtl" : "ltr"}" lang="${lang}"><head><meta charset="utf-8"/>
-      <meta name="viewport" content="width=device-width, initial-scale=1"/>
-      <title>${t("dash.pdf.title")}</title>
-      <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px}th,td{border:1px solid #ccc;padding:4px;text-align:${lang === "ar" ? "right" : "left"}}h1{font-size:18px}h2{font-size:14px;margin:12px 0 6px}@page{size:A4 landscape;margin:10mm}</style>
-      </head><body><h1>${t("dash.pdf.title")}</h1>
+    const body = `<h1>${t("dash.pdf.title")}</h1>
       <p>${t("dash.pdf.summary", { inv: parsed.length, items: totals.items, sub: nf.format(totals.subtotal), tax: nf.format(totals.tax), total: nf.format(totals.total) })}</p>
       <h2>${t("dash.pdf.invoices")}</h2>
       ${tableHtml(INVOICES_HEAD, buildInvoiceRows(), invFooter)}
       <h2>${t("dash.pdf.items")}</h2>
-      ${tableHtml(ITEMS_HEAD, buildItemRows())}
-      <script>window.addEventListener("load",function(){setTimeout(function(){try{window.focus();window.print();}catch(e){}},400)});<\/script>
-      </body></html>`;
+      ${tableHtml(ITEMS_HEAD, buildItemRows())}`;
 
-    const isMobile =
-      typeof navigator !== "undefined" &&
-      /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent);
+    // Print the current document: the only approach supported by both iOS Safari
+    // and Android Chrome (hidden iframes / blob tabs are blocked on mobile).
+    const prev = document.getElementById("print-report");
+    prev?.remove();
+    const holder = document.createElement("div");
+    holder.id = "print-report";
+    holder.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+    holder.style.textAlign = lang === "ar" ? "right" : "left";
+    holder.innerHTML = body;
+    document.body.appendChild(holder);
+    document.body.classList.add("printing");
 
-    const openInTab = () => {
-      // Must stay inside the click gesture for mobile popup blockers.
-      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const w = window.open(url, "_blank");
-      if (!w) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.rel = "noopener";
-        a.download = "report.html";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    const cleanup = () => {
+      document.body.classList.remove("printing");
+      holder.remove();
+      window.removeEventListener("afterprint", cleanup);
     };
+    window.addEventListener("afterprint", cleanup);
 
-    if (isMobile) {
-      // iOS/Android ignore printing from hidden iframes: open a real tab the user can
-      // print or "Share → Save to Files" as PDF.
-      openInTab();
-      toast.info(t("dash.toast.pdfMobile"));
-      return;
-    }
-
-    try {
-      const frame = document.createElement("iframe");
-      frame.setAttribute("aria-hidden", "true");
-      frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0";
-      document.body.appendChild(frame);
-      const doc = frame.contentWindow?.document;
-      if (!doc) throw new Error("no-frame");
-      doc.open();
-      doc.write(html);
-      doc.close();
-      const run = () => {
-        try {
-          frame.contentWindow?.focus();
-          frame.contentWindow?.print();
-        } catch {
-          /* ignore */
-        }
-        setTimeout(() => frame.remove(), 2000);
-      };
-      if (doc.readyState === "complete") setTimeout(run, 300);
-      else frame.onload = () => setTimeout(run, 300);
-    } catch {
-      openInTab();
-    }
+    setTimeout(() => {
+      try {
+        window.focus();
+        window.print();
+      } catch {
+        cleanup();
+        toast.error(t("dash.toast.pdfMobile"));
+        return;
+      }
+      // Safari on iOS does not always fire afterprint.
+      setTimeout(cleanup, 3000);
+    }, 150);
   };
 
 
