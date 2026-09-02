@@ -477,7 +477,7 @@ function Index() {
     toast.success(t("dash.toast.excelDone"));
   };
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     if (!hasData()) return;
     void trackFn({ data: { action: "pdf_export" } }).catch(() => undefined);
     const invFooter = `<tr><th colspan="4">${t("dash.grandTotal")}</th><th>${nf.format(totals.subtotal)}</th><th>${nf.format(totals.tax)}</th><th>${nf.format(totals.total)}</th><th></th></tr>`;
@@ -488,37 +488,64 @@ function Index() {
       <h2>${t("dash.pdf.items")}</h2>
       ${tableHtml(ITEMS_HEAD, buildItemRows())}`;
 
-    // Print the current document: the only approach supported by both iOS Safari
-    // and Android Chrome (hidden iframes / blob tabs are blocked on mobile).
-    const prev = document.getElementById("print-report");
-    prev?.remove();
+    // Generate a real PDF in the browser (html2canvas + jsPDF). This is the only
+    // approach that works on Android Chrome, where window.print() is a no-op,
+    // while staying compatible with iOS Safari and desktop browsers.
+    document.getElementById("print-report")?.remove();
     const holder = document.createElement("div");
     holder.id = "print-report";
     holder.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
-    holder.style.textAlign = lang === "ar" ? "right" : "left";
+    holder.style.cssText = `position:fixed;left:-12000px;top:0;width:1120px;padding:32px;background:#fff;color:#000;text-align:${lang === "ar" ? "right" : "left"};display:block;`;
     holder.innerHTML = body;
     document.body.appendChild(holder);
-    document.body.classList.add("printing");
 
-    const cleanup = () => {
-      document.body.classList.remove("printing");
-      holder.remove();
-      window.removeEventListener("afterprint", cleanup);
-    };
-    window.addEventListener("afterprint", cleanup);
-
-    setTimeout(() => {
+    const cleanup = () => holder.remove();
+    const toastId = toast.loading(t("dash.toast.pdfPreparing"));
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(holder, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * pageW) / canvas.width;
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      let y = 0;
+      pdf.addImage(imgData, "JPEG", 0, y, pageW, imgH);
+      let remaining = imgH - pageH;
+      while (remaining > 0) {
+        y -= pageH;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, y, pageW, imgH);
+        remaining -= pageH;
+      }
+      pdf.save("تقرير_المشتريات.pdf");
+      toast.success(t("dash.toast.pdfDone"), { id: toastId });
+    } catch {
+      toast.dismiss(toastId);
+      // Fallback: system print dialog (works on desktop Chrome / iOS Safari).
+      holder.style.cssText = "";
+      document.body.classList.add("printing");
+      const done = () => {
+        document.body.classList.remove("printing");
+        holder.remove();
+        window.removeEventListener("afterprint", done);
+      };
+      window.addEventListener("afterprint", done);
       try {
         window.focus();
         window.print();
       } catch {
-        cleanup();
-        toast.error(t("dash.toast.pdfMobile"));
+        done();
+        toast.error(t("dash.toast.pdfFail"));
         return;
       }
-      // Safari on iOS does not always fire afterprint.
-      setTimeout(cleanup, 3000);
-    }, 150);
+      setTimeout(done, 3000);
+      return;
+    }
+    cleanup();
   };
 
 
