@@ -884,7 +884,229 @@ const tr: Dict = {
   "pr.feature7": "Tüm hizmet özellikleri",
 };
 
-const DICTS: Record<Lang, Dict> = { ar, en, tr };
+/* ------------------------- footer + legal + faq ------------------------- */
+
+const footerAr: Dict = {
+  "ft.tagline": "قراءة فواتير المشتريات بالذكاء الاصطناعي وتحويلها إلى تقارير جاهزة.",
+  "ft.service": "الخدمة",
+  "ft.home": "الرئيسية",
+  "ft.pricing": "الأسعار والاشتراكات",
+  "ft.faq": "الأسئلة الشائعة",
+  "ft.support": "الدعم",
+  "ft.contact": "اتصل بنا",
+  "ft.emailLabel": "البريد الإلكتروني",
+  "ft.legal": "قانوني",
+  "ft.privacy": "سياسة الخصوصية",
+  "ft.terms": "الشروط والأحكام",
+  "ft.refund": "سياسة الاسترداد والدفع",
+  "ft.payments": "وسائل الدفع",
+  "ft.language": "اللغة",
+  "ft.currency": "العملة",
+  "ft.rights": "© 2026 جميع الحقوق محفوظة",
+  "pr.business.f1": "{n} فاتورة شهريًا",
+  "pr.business.f2": "كل مزايا Pro",
+  "pr.business.f3": "أرشيف وسجل كامل للفواتير",
+  "faq.title": "الأسئلة الشائعة",
+  "faq.lead": "إجابات عن أكثر ما يُسأل حول دفتر.",
+  "faq.q1": "كيف يعمل دفتر؟",
+  "faq.a1":
+    "ترفع صور الفواتير أو ملفات PDF، فيقرأها الذكاء الاصطناعي ويستخرج المورد ورقم الفاتورة والتاريخ والبنود والأسعار والضريبة، ثم يعرض تقريرًا قابلًا للتصدير.",
+  "faq.q2": "هل يقرأ الخط اليدوي؟",
+  "faq.a2":
+    "نعم، يدعم النظام الفواتير المطبوعة والمكتوبة بخط اليد، مع درجة ثقة لكل فاتورة وتنبيه للفواتير التي تحتاج مراجعة يدوية.",
+  "faq.q3": "ما الفرق بين الباقات؟",
+  "faq.a3":
+    "الباقة المجانية تسمح بعدد محدود من الفواتير شهريًا بدون حفظ دائم، بينما Pro و Business تحفظ الفواتير في حسابك مع الأرشيف الشهري وحدود أعلى.",
+  "faq.q4": "هل تُحفظ فواتيري؟",
+  "faq.a4":
+    "الحفظ الدائم متاح في الباقات المدفوعة فقط. في الباقة المجانية تُحلَّل الفاتورة ثم تُحذف عند مغادرة الصفحة.",
+  "faq.q5": "ما صيغ التصدير المتاحة؟",
+  "faq.a5": "Excel بورقتين (الفواتير والبنود)، إضافة إلى CSV و PDF.",
+  "faq.q6": "كيف ألغي اشتراكي؟",
+  "faq.a6":
+    "من صفحة الإعدادات → الاشتراك والفوترة يمكنك إيقاف التجديد التلقائي، وتبقى مزايا الباقة فعّالة حتى نهاية الفترة المدفوعة.",
+  "contact.title": "اتصل بنا",
+  "contact.lead": "للدعم الفني أو الاستفسارات حول الاشتراكات، راسلنا عبر البريد الإلكتروني وسنرد في أقرب وقت.",
+  "contact.emailUs": "راسلنا",
+  "legal.updated": "آخر تحديث: 2026",
+  "privacy.title": "سياسة الخصوصية",
+  "privacy.p1":
+    "نجمع الحد الأدنى من البيانات اللازمة لتشغيل الخدمة: البريد الإلكتروني عند إنشاء الحساب، وبيانات الاشتراك والاستهلاك.",
+  "privacy.p2":
+    "تُعالَج الفواتير المرفوعة لاستخراج بياناتها فقط. في الباقات المدفوعة تُحفظ البيانات المستخرجة في حسابك، وفي الباقة المجانية لا تُحفظ بعد انتهاء الجلسة.",
+  "privacy.p3":
+    "لا نبيع بياناتك ولا نشاركها لأغراض تسويقية. تُشارك البيانات فقط مع مزوّدي الخدمة اللازمين للتشغيل (الاستضافة، قاعدة البيانات، مزوّد الذكاء الاصطناعي، بوابات الدفع).",
+  "privacy.p4":
+    "يمكنك حذف فواتيرك من داخل الحساب في أي وقت، أو طلب حذف الحساب بالكامل عبر البريد الإلكتروني للدعم.",
+  "terms.title": "الشروط والأحكام",
+  "terms.p1":
+    "باستخدامك الخدمة فإنك توافق على هذه الشروط. الخدمة مخصصة لقراءة فواتير المشتريات وتحويلها إلى بيانات وتقارير.",
+  "terms.p2":
+    "أنت مسؤول عن صحة الفواتير التي ترفعها وعن امتلاكك الحق في معالجتها، وعن مراجعة النتائج قبل استخدامها محاسبيًا.",
+  "terms.p3":
+    "الاستخراج يتم آليًا بالذكاء الاصطناعي وقد يحتوي على أخطاء؛ لا نتحمل مسؤولية أي قرار مالي يُتخذ دون مراجعة بشرية.",
+  "terms.p4":
+    "يُمنع إساءة استخدام الخدمة أو محاولة تجاوز حدود الباقة، ويحق لنا إيقاف أي حساب يخالف ذلك.",
+  "refund.title": "سياسة الاسترداد والدفع",
+  "refund.p1":
+    "الاشتراكات شهرية وتُدفع مسبقًا عبر بوابات الدفع المعتمدة، ويبدأ التفعيل بعد تأكيد عملية الدفع.",
+  "refund.p2":
+    "يمكنك إيقاف التجديد التلقائي في أي وقت من صفحة الإعدادات، وتستمر مزايا الباقة حتى نهاية الفترة المدفوعة.",
+  "refund.p3":
+    "في حال وجود خصم مزدوج أو خلل تقني منع استخدام الخدمة، راسلنا خلال 14 يومًا من الدفع وسنراجع الطلب ونعيد المبلغ عند استحقاقه.",
+  "refund.p4": "لا تُسترد قيمة الفترة المستهلكة من الاشتراك بعد استخدام حصة الفواتير الخاصة بها.",
+};
+
+const footerEn: Dict = {
+  "ft.tagline": "AI purchase-invoice reading that turns documents into ready reports.",
+  "ft.service": "Service",
+  "ft.home": "Home",
+  "ft.pricing": "Pricing & plans",
+  "ft.faq": "FAQ",
+  "ft.support": "Support",
+  "ft.contact": "Contact us",
+  "ft.emailLabel": "Email",
+  "ft.legal": "Legal",
+  "ft.privacy": "Privacy Policy",
+  "ft.terms": "Terms & Conditions",
+  "ft.refund": "Refund & Payment Policy",
+  "ft.payments": "Payment methods",
+  "ft.language": "Language",
+  "ft.currency": "Currency",
+  "ft.rights": "© 2026 All rights reserved",
+  "pr.business.f1": "{n} invoices per month",
+  "pr.business.f2": "Everything in Pro",
+  "pr.business.f3": "Full invoice history and archive",
+  "faq.title": "Frequently asked questions",
+  "faq.lead": "Answers to the most common questions about Daftar.",
+  "faq.q1": "How does Daftar work?",
+  "faq.a1":
+    "You upload invoice images or PDFs, the AI reads them and extracts supplier, invoice number, date, line items, prices and tax, then shows an exportable report.",
+  "faq.q2": "Does it read handwriting?",
+  "faq.a2":
+    "Yes. Printed and handwritten invoices are supported, with a confidence score per invoice and a flag when manual review is needed.",
+  "faq.q3": "What is the difference between plans?",
+  "faq.a3":
+    "The free plan allows a limited number of invoices per month without permanent storage, while Pro and Business store invoices in your account with monthly archiving and higher limits.",
+  "faq.q4": "Are my invoices stored?",
+  "faq.a4":
+    "Permanent storage is available on paid plans only. On the free plan invoices are analyzed and discarded when you leave the page.",
+  "faq.q5": "Which export formats are available?",
+  "faq.a5": "Excel with two sheets (Invoices and Items), plus CSV and PDF.",
+  "faq.q6": "How do I cancel my subscription?",
+  "faq.a6":
+    "In Settings → Subscription & Billing you can stop auto-renewal; plan features stay active until the end of the paid period.",
+  "contact.title": "Contact us",
+  "contact.lead":
+    "For technical support or subscription questions, email us and we will reply as soon as possible.",
+  "contact.emailUs": "Email us",
+  "legal.updated": "Last updated: 2026",
+  "privacy.title": "Privacy Policy",
+  "privacy.p1":
+    "We collect the minimum data needed to run the service: your email at signup, plus subscription and usage records.",
+  "privacy.p2":
+    "Uploaded invoices are processed only to extract their data. On paid plans the extracted data is stored in your account; on the free plan nothing is kept after the session.",
+  "privacy.p3":
+    "We never sell your data or share it for marketing. Data is shared only with the providers required to operate (hosting, database, AI provider, payment gateways).",
+  "privacy.p4":
+    "You can delete your invoices from your account at any time, or request full account deletion via the support email.",
+  "terms.title": "Terms & Conditions",
+  "terms.p1":
+    "By using the service you agree to these terms. The service is intended for reading purchase invoices and turning them into data and reports.",
+  "terms.p2":
+    "You are responsible for the invoices you upload, for having the right to process them, and for reviewing results before accounting use.",
+  "terms.p3":
+    "Extraction is automated with AI and may contain errors; we are not liable for financial decisions made without human review.",
+  "terms.p4":
+    "Abusing the service or attempting to bypass plan limits is prohibited and may result in account suspension.",
+  "refund.title": "Refund & Payment Policy",
+  "refund.p1":
+    "Subscriptions are monthly and paid in advance through approved payment gateways; activation starts once payment is confirmed.",
+  "refund.p2":
+    "You may stop auto-renewal at any time from Settings; plan features continue until the end of the paid period.",
+  "refund.p3":
+    "In case of a double charge or a technical fault that prevented use of the service, contact us within 14 days of payment and we will review and refund where due.",
+  "refund.p4": "Consumed subscription periods are not refundable once the invoice quota has been used.",
+};
+
+const footerTr: Dict = {
+  "ft.tagline": "Satın alma faturalarını yapay zekâ ile okuyup hazır raporlara dönüştürür.",
+  "ft.service": "Hizmet",
+  "ft.home": "Ana sayfa",
+  "ft.pricing": "Fiyatlar ve abonelikler",
+  "ft.faq": "Sık sorulan sorular",
+  "ft.support": "Destek",
+  "ft.contact": "Bize ulaşın",
+  "ft.emailLabel": "E-posta",
+  "ft.legal": "Yasal",
+  "ft.privacy": "Gizlilik Politikası",
+  "ft.terms": "Şartlar ve Koşullar",
+  "ft.refund": "İade ve Ödeme Politikası",
+  "ft.payments": "Ödeme yöntemleri",
+  "ft.language": "Dil",
+  "ft.currency": "Para birimi",
+  "ft.rights": "© 2026 Tüm hakları saklıdır",
+  "pr.business.f1": "Ayda {n} fatura",
+  "pr.business.f2": "Pro'daki her şey",
+  "pr.business.f3": "Tam fatura geçmişi ve arşivi",
+  "faq.title": "Sık sorulan sorular",
+  "faq.lead": "Daftar hakkında en çok sorulan soruların yanıtları.",
+  "faq.q1": "Daftar nasıl çalışır?",
+  "faq.a1":
+    "Fatura görsellerini veya PDF dosyalarını yüklersiniz; yapay zekâ tedarikçi, fatura no, tarih, kalemler, fiyatlar ve vergiyi çıkarır ve dışa aktarılabilir bir rapor sunar.",
+  "faq.q2": "El yazısını okuyor mu?",
+  "faq.a2":
+    "Evet. Matbu ve el yazısı faturalar desteklenir; her fatura için güven puanı ve inceleme gerektiğinde uyarı verilir.",
+  "faq.q3": "Paketler arasındaki fark nedir?",
+  "faq.a3":
+    "Ücretsiz paket kalıcı kayıt olmadan ayda sınırlı fatura sunar; Pro ve Business faturaları hesabınızda saklar, aylık arşiv ve daha yüksek limitler sağlar.",
+  "faq.q4": "Faturalarım saklanıyor mu?",
+  "faq.a4":
+    "Kalıcı saklama yalnızca ücretli paketlerde vardır. Ücretsiz pakette faturalar analiz edilir ve sayfadan çıkınca silinir.",
+  "faq.q5": "Hangi dışa aktarma biçimleri var?",
+  "faq.a5": "İki sayfalı Excel (Faturalar ve Kalemler), ayrıca CSV ve PDF.",
+  "faq.q6": "Aboneliğimi nasıl iptal ederim?",
+  "faq.a6":
+    "Ayarlar → Abonelik ve Faturalandırma bölümünden otomatik yenilemeyi durdurabilirsiniz; paket avantajları ödenen dönem sonuna kadar sürer.",
+  "contact.title": "Bize ulaşın",
+  "contact.lead":
+    "Teknik destek veya abonelik soruları için e-posta gönderin, en kısa sürede yanıtlayalım.",
+  "contact.emailUs": "E-posta gönder",
+  "legal.updated": "Son güncelleme: 2026",
+  "privacy.title": "Gizlilik Politikası",
+  "privacy.p1":
+    "Hizmeti çalıştırmak için gereken en az veriyi toplarız: kayıt sırasında e-posta, abonelik ve kullanım kayıtları.",
+  "privacy.p2":
+    "Yüklenen faturalar yalnızca veri çıkarımı için işlenir. Ücretli paketlerde çıkarılan veriler hesabınızda saklanır; ücretsiz pakette oturum sonrası saklanmaz.",
+  "privacy.p3":
+    "Verilerinizi satmayız ve pazarlama amacıyla paylaşmayız. Veriler yalnızca işletim için gerekli sağlayıcılarla paylaşılır (barındırma, veritabanı, yapay zekâ sağlayıcısı, ödeme ağ geçitleri).",
+  "privacy.p4":
+    "Faturalarınızı istediğiniz zaman hesabınızdan silebilir veya destek e-postası ile hesabınızın tamamen silinmesini isteyebilirsiniz.",
+  "terms.title": "Şartlar ve Koşullar",
+  "terms.p1":
+    "Hizmeti kullanarak bu şartları kabul edersiniz. Hizmet, satın alma faturalarını okuyup veri ve rapora dönüştürmek içindir.",
+  "terms.p2":
+    "Yüklediğiniz faturalardan, bunları işleme hakkına sahip olmaktan ve sonuçları muhasebe amaçlı kullanmadan önce kontrol etmekten siz sorumlusunuz.",
+  "terms.p3":
+    "Çıkarım yapay zekâ ile otomatik yapılır ve hata içerebilir; insan kontrolü olmadan alınan finansal kararlardan sorumlu değiliz.",
+  "terms.p4":
+    "Hizmetin kötüye kullanımı veya paket limitlerini aşma girişimi yasaktır ve hesabın askıya alınmasına yol açabilir.",
+  "refund.title": "İade ve Ödeme Politikası",
+  "refund.p1":
+    "Abonelikler aylıktır ve onaylı ödeme ağ geçitleri üzerinden peşin ödenir; etkinleştirme ödeme onayından sonra başlar.",
+  "refund.p2":
+    "Otomatik yenilemeyi Ayarlar'dan istediğiniz zaman durdurabilirsiniz; paket avantajları ödenen dönem sonuna kadar devam eder.",
+  "refund.p3":
+    "Çift çekim veya hizmeti kullanmanızı engelleyen teknik bir arıza durumunda ödemeden sonraki 14 gün içinde bize yazın; inceleyip hak edilen tutarı iade edelim.",
+  "refund.p4": "Fatura kotası kullanıldıktan sonra tüketilen dönem ücreti iade edilmez.",
+};
+
+const DICTS: Record<Lang, Dict> = {
+  ar: { ...ar, ...footerAr },
+  en: { ...en, ...footerEn },
+  tr: { ...tr, ...footerTr },
+};
+
 
 const normalize = (value: string | undefined | null): Lang => {
   const v = (value ?? "").toLowerCase().slice(0, 2);
