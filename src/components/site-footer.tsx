@@ -1,8 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { getPublicSettings } from "@/lib/settings.functions";
-import { LANGS, useI18n, type Lang } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
 
 export const SUPPORT_EMAIL = "aiinvoice15@gmail.com";
 
@@ -38,15 +35,7 @@ const linkCls =
   "text-[13px] text-muted-foreground transition-colors hover:text-brand focus-visible:text-brand";
 
 export function SiteFooter() {
-  const { t, lang, setLang } = useI18n();
-  const settingsFn = useServerFn(getPublicSettings);
-  const [currency, setCurrency] = useState<string | null>(null);
-
-  useEffect(() => {
-    void settingsFn()
-      .then((s) => setCurrency((s as { defaultCurrency?: string } | null)?.defaultCurrency ?? null))
-      .catch(() => undefined);
-  }, [settingsFn]);
+  const { t } = useI18n();
 
   return (
     <footer className="mt-16 border-t border-border bg-surface">
