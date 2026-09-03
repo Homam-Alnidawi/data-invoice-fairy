@@ -150,7 +150,7 @@ async function buildView(
     enableBlockedReason: current.enableBlockedReason,
     supportsConnectionTest: def.supportsConnectionTest,
     callbackKind: def.callbackKind,
-    webhookUrl: `${origin}${def.webhookPath}`,
+    webhookUrl: def.webhookPath ? `${origin}${def.webhookPath}` : "",
     recurring: def.recurring,
     ...(def.notes ? { notes: def.notes } : {}),
     lastError,

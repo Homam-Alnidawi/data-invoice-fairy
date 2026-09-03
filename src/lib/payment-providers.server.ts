@@ -140,6 +140,70 @@ export const PROVIDERS: ProviderDef[] = [
     notes:
       "Zain Cash لا يوفّر اشتراكات متكرّرة تلقائية ولا نقطة رسمية لاختبار بيانات الاعتماد — الدفع لدورة واحدة يدويًا عبر إعادة التوجيه ثم Callback موقّع بـ JWT.",
   },
+  {
+    id: "paypal_manual",
+    displayName: "PayPal Manual",
+    doc: "https://www.paypal.com",
+    environments: [{ value: "manual", label: "Manual" }],
+    defaultCurrency: "USD",
+    fields: [
+      { key: "account", label: "PayPal account / email", secret: false, required: true },
+      {
+        key: "instructions",
+        label: "Payment instructions",
+        secret: false,
+        required: true,
+        hint: "Shown to customers before they submit their proof.",
+      },
+    ],
+    supportsConnectionTest: false,
+    callbackKind: "callback",
+    webhookPath: "",
+    recurring: false,
+    notes: "Manual review only — no API, callback, or automatic renewal.",
+  },
+  {
+    id: "zaincash_manual",
+    displayName: "Zain Cash Manual",
+    doc: "https://www.zaincash.iq",
+    environments: [{ value: "manual", label: "Manual" }],
+    defaultCurrency: "IQD",
+    fields: [
+      { key: "account", label: "Zain Cash number / account", secret: false, required: true },
+      {
+        key: "instructions",
+        label: "Payment instructions",
+        secret: false,
+        required: true,
+        hint: "Shown to customers before they submit their proof.",
+      },
+    ],
+    supportsConnectionTest: false,
+    callbackKind: "callback",
+    webhookPath: "",
+    recurring: false,
+    notes: "Manual review only — no API, callback, or automatic renewal.",
+  },
+  {
+    id: "card_manual",
+    displayName: "Visa / Mastercard",
+    doc: "",
+    environments: [{ value: "manual", label: "Manual" }],
+    defaultCurrency: "USD",
+    fields: [
+      {
+        key: "instructions",
+        label: "Payment instructions",
+        secret: false,
+        required: true,
+      },
+    ],
+    supportsConnectionTest: false,
+    callbackKind: "callback",
+    webhookPath: "",
+    recurring: false,
+    notes: "Disabled by default. Enable only after configuring a verified manual process.",
+  },
 ];
 
 export const getProviderDef = (id: string) => PROVIDERS.find((p) => p.id === id);
