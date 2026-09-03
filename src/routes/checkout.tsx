@@ -175,14 +175,18 @@ function CheckoutPage() {
               </button>)}
             </div>}
 
-            {selected && isManual && <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
-              <div className="flex items-center gap-2 text-sm font-black">{providerIcon(selected.id)} تفاصيل التحويل</div>
-              {selected.publicConfig["account"] && <div className="mt-3 flex items-center gap-2 rounded-lg bg-background p-3"><Mail className="size-4 text-muted-foreground" /><code className="min-w-0 flex-1 break-all text-sm" dir="ltr">{selected.publicConfig["account"]}</code><Button type="button" size="icon" variant="ghost" aria-label="نسخ بيانات الحساب" onClick={() => void copy(selected.publicConfig["account"])}><Copy /></Button></div>}
-              {selected.publicConfig["instructions"] && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{selected.publicConfig["instructions"]}</p>}
-              <label className="mt-4 block text-xs font-bold">رقم العملية / المرجع (اختياري إذا رفعت الإثبات)<input value={transactionId} onChange={(event) => setTransactionId(event.target.value)} maxLength={160} dir="ltr" className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-normal" /></label>
-              <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-background px-3 py-3 text-sm font-bold"><FileImage className="size-4" /> <span className="min-w-0 flex-1 truncate">{proofFile?.name ?? "رفع صورة أو PDF لإثبات الدفع"}</span><input type="file" accept="image/*,application/pdf" className="sr-only" onChange={(event) => setProofFile(event.target.files?.[0] ?? null)} /></label>
-              <p className="mt-2 text-[11px] text-muted-foreground">الحد الأقصى 10MB. لا يتم تفعيل الاشتراك إلا بعد مراجعة المدير.</p>
-            </div>}
+            {selected && isManual && (() => {
+              const account = selected.publicConfig["account"];
+              const instructions = selected.publicConfig["instructions"];
+              return <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
+                <div className="flex items-center gap-2 text-sm font-black">{providerIcon(selected.id)} تفاصيل التحويل</div>
+                {account && <div className="mt-3 flex items-center gap-2 rounded-lg bg-background p-3"><Mail className="size-4 text-muted-foreground" /><code className="min-w-0 flex-1 break-all text-sm" dir="ltr">{account}</code><Button type="button" size="icon" variant="ghost" aria-label="نسخ بيانات الحساب" onClick={() => void copy(account)}><Copy /></Button></div>}
+                {instructions && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{instructions}</p>}
+                <label className="mt-4 block text-xs font-bold">رقم العملية / المرجع (اختياري إذا رفعت الإثبات)<input value={transactionId} onChange={(event) => setTransactionId(event.target.value)} maxLength={160} dir="ltr" className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-normal" /></label>
+                <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-background px-3 py-3 text-sm font-bold"><FileImage className="size-4" /> <span className="min-w-0 flex-1 truncate">{proofFile?.name ?? "رفع صورة أو PDF لإثبات الدفع"}</span><input type="file" accept="image/*,application/pdf" className="sr-only" onChange={(event) => setProofFile(event.target.files?.[0] ?? null)} /></label>
+                <p className="mt-2 text-[11px] text-muted-foreground">الحد الأقصى 10MB. لا يتم تفعيل الاشتراك إلا بعد مراجعة المدير.</p>
+              </div>;
+            })()}
 
             <Button type="button" className="mt-5 w-full" disabled={busy || !selected || !plan} onClick={() => void submit()}>{busy && <Loader2 className="animate-spin" />}{busy ? "جارٍ تجهيز الطلب…" : isManual ? "إرسال طلب الدفع للمراجعة" : "المتابعة إلى الدفع"}</Button>
           </section>
