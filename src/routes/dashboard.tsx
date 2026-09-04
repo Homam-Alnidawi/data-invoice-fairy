@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { BrandMark } from "@/components/brand-mark";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -602,9 +603,7 @@ function Index() {
       <header className="sticky top-0 z-20 border-b border-border bg-background/92 backdrop-blur">
         <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div className="animate-rise flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-lg bg-brand text-base leading-none font-extrabold text-primary-foreground">
-              {t("brand.mark")}
-            </div>
+            <BrandMark />
             <div className="leading-none">
               <div className="text-[15px] font-extrabold tracking-tight">{t("brand.name")}</div>
               <div className="mt-0.5 text-[10px] text-muted-foreground">

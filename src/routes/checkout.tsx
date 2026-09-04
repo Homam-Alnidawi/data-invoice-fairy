@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { BrandMark } from "@/components/brand-mark";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -148,7 +149,7 @@ function CheckoutPage() {
       <main className="mx-auto max-w-3xl">
         <div className="flex items-center justify-between gap-3">
           <Link to="/pricing" className="inline-flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> العودة للأسعار</Link>
-          <Link to="/" className="text-sm font-black">{t("brand.name")}</Link>
+          <Link to="/" className="flex items-center gap-2 text-sm font-black"><BrandMark className="size-7 rounded-md" />{t("brand.name")}</Link>
         </div>
         <h1 className="mt-8 text-3xl font-black tracking-tight">إتمام الاشتراك</h1>
         <p className="mt-2 text-sm text-muted-foreground">اختر الطريقة المناسبة. البوابات API تفتح صفحة الدفع، والدفع اليدوي ينتظر مراجعة المدير.</p>
