@@ -1,6 +1,6 @@
 import logoUrl from "@/assets/logo.png";
 
-export function BrandMark({ className = "size-8 rounded-lg" }: { className?: string }) {
+export function BrandMark({ className = "size-10 rounded-xl" }: { className?: string }) {
   return (
     <img
       src={logoUrl}
