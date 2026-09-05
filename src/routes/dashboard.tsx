@@ -14,6 +14,16 @@ import { getUsageState, type UsageState } from "@/lib/usage.functions";
 import { trackActivity } from "@/lib/activity.functions";
 import { amIAdmin } from "@/lib/admin.functions";
 import { monthLabel, useI18n } from "@/lib/i18n";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -42,6 +52,7 @@ type Status = "queued" | "processing" | "done" | "review" | "rejected" | "error"
 
 type Job = {
   id: string;
+  dbId?: string;
   fileName: string;
   status: Status;
   progress: number;
@@ -89,6 +100,7 @@ function Index() {
   const [running, setRunning] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [clearOpen, setClearOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { t, lang } = useI18n();
   const dash = (v: string | null | undefined) => (v && v.trim() ? v : t("dash.unknown"));
@@ -160,6 +172,7 @@ function Index() {
       if (error || !alive || !data) return;
       const saved: Job[] = data.map((row) => ({
         id: row.id,
+        dbId: row.id,
         fileName: row.file_name,
         status: (row.status as Status) ?? "done",
         progress: 100,
@@ -178,9 +191,9 @@ function Index() {
 
   // الحفظ الدائم متاح لمستخدمي Pro فقط — لا تُحفظ ملفات الزائر أو Free
   const persist = useCallback(
-    async (fileName: string, status: Status, inv: ExtractedInvoice) => {
+    async (jobId: string, fileName: string, status: Status, inv: ExtractedInvoice) => {
       if (!user || !isPro) return;
-      const { error } = await supabase.from("invoices").insert({
+      const { data: inserted, error } = await supabase.from("invoices").insert({
         user_id: user.id,
         file_name: fileName,
         status,
@@ -193,35 +206,36 @@ function Index() {
         tax: inv.tax,
         total: inv.total,
         data: inv as unknown as never,
-      });
-      if (error) console.error(error);
+      }).select("id").single();
+      if (error) {
+        console.error(error);
+        return;
+      }
+      if (inserted?.id) patch(jobId, { dbId: inserted.id });
     },
-    [user, isPro],
+    [user, isPro, patch],
   );
 
-  // حذف ملف من قائمة المعالجة — بدون إعادة الرصيد المستهلك
-  // وإن كانت الفاتورة محفوظة في قاعدة البيانات (Pro) تُحذف منها أيضًا حتى لا تعود بعد التحديث
-  const removeJob = useCallback(
-    (id: string) => {
-      setJobs((prev) => {
-        const target = prev.find((j) => j.id === id);
-        if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
-        return prev.filter((j) => j.id !== id);
-      });
-      setReviewId((cur) => (cur === id ? null : cur));
-      if (user && isPro) {
-        void supabase
-          .from("invoices")
-          .delete()
-          .eq("id", id)
-          .eq("user_id", user.id)
-          .then(({ error }) => {
-            if (error) console.error(error);
-          });
-      }
-    },
-    [user, isPro],
-  );
+  // حذف ملف من قائمة المعالجة فقط — الفاتورة تبقى محفوظة في الأرشيف الشهري
+  const removeJob = useCallback((id: string) => {
+    setJobs((prev) => {
+      const target = prev.find((j) => j.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((j) => j.id !== id);
+    });
+    setReviewId((cur) => (cur === id ? null : cur));
+  }, []);
+
+  // حذف كل قائمة المعالجة — بدون المساس بالأرشيف الشهري
+  const clearQueue = useCallback(() => {
+    setJobs((prev) => {
+      for (const j of prev) if (j.previewUrl) URL.revokeObjectURL(j.previewUrl);
+      return [];
+    });
+    setReviewId(null);
+    setClearOpen(false);
+    toast.success(t("dash.cleared"));
+  }, [t]);
 
   const signOut = useCallback(async () => {
 
@@ -289,7 +303,7 @@ function Index() {
                   ? "rejected"
                   : "review";
             patch(job.id, { status: nextStatus, progress: 100, data });
-            void persist(file.name, nextStatus, data);
+            void persist(job.id, file.name, nextStatus, data);
           } catch (err) {
             const message = err instanceof Error ? err.message : t("dash.unknownError");
             const quota = parseQuotaError(message);
@@ -553,10 +567,11 @@ function Index() {
   const reviewJob = jobs.find((j) => j.id === reviewId) ?? null;
 
   const saveReview = (id: string, next: ExtractedInvoice) => {
+    const job = jobs.find((j) => j.id === id);
     patch(id, { data: next, status: "done" });
     setReviewId(null);
     toast.success(t("dash.toast.reviewSaved"));
-    if (isPro) {
+    if (isPro && user && job?.dbId) {
       void supabase
         .from("invoices")
         .update({
@@ -571,7 +586,11 @@ function Index() {
           total: next.total,
           data: next as unknown as never,
         })
-        .eq("id", id);
+        .eq("id", job.dbId)
+        .eq("user_id", user.id)
+        .then(({ error }) => {
+          if (error) console.error(error);
+        });
     }
   };
 
@@ -767,9 +786,18 @@ function Index() {
                 <span className="text-[11px] font-semibold text-muted-foreground">
                   {t("dash.queue")}
                 </span>
-                <span className="text-[11px] text-muted-foreground">
-                  {t("dash.remaining", { n: jobs.length - doneCount })}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    {t("dash.remaining", { n: jobs.length - doneCount })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setClearOpen(true)}
+                    className="rounded-full bg-destructive/10 px-2.5 py-1 text-[10px] font-bold text-destructive transition-colors hover:bg-destructive/20"
+                  >
+                    {t("dash.clearAll")}
+                  </button>
+                </div>
               </div>
               <ul className="max-h-72 space-y-2 overflow-y-auto pl-1">
                 {jobs.slice(0, 60).map((job) => (
@@ -1087,6 +1115,26 @@ function Index() {
           onSave={(next) => saveReview(reviewJob.id, next)}
         />
       )}
+
+      <AlertDialog open={clearOpen} onOpenChange={setClearOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("dash.clearTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("dash.clearBody", { n: jobs.length })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel>{t("dash.clearCancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={clearQueue}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("dash.clearConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {upgradeOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">

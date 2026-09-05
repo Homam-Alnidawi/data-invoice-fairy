@@ -3,6 +3,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { monthLabel, useI18n } from "@/lib/i18n";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +62,7 @@ type Row = {
   tax: number;
   total: number;
   created_at: string;
+  data?: { items?: { name: string; qty: number; unitPrice: number; discount: number; total: number }[] } | null;
 };
 
 type SupplierGroup = {
@@ -91,7 +93,7 @@ function ArchiveMonthPage() {
       const { data, error: err } = await supabase
         .from("invoices")
         .select(
-          "id, file_name, supplier, invoice_number, invoice_date, currency, subtotal, discount, tax, total, created_at",
+          "id, file_name, supplier, invoice_number, invoice_date, currency, subtotal, discount, tax, total, created_at, data",
         )
         .eq("archive_month", month)
         .order("created_at", { ascending: false });
@@ -148,6 +150,119 @@ function ArchiveMonthPage() {
     setDeleteTarget(null);
   };
 
+  const INV_HEAD = [
+    t("col.invNumber"),
+    t("col.date"),
+    t("dash.supplier"),
+    t("col.currency"),
+    t("col.net"),
+    t("col.tax"),
+    t("col.total"),
+  ];
+  const ITEM_HEAD = [
+    t("col.invNumber"),
+    t("dash.supplier"),
+    t("col.product"),
+    t("col.qty"),
+    t("col.unitPrice"),
+    t("col.discount"),
+    t("col.lineTotal"),
+  ];
+
+  const invRows = () =>
+    (rows ?? []).map((r) => [
+      r.invoice_number?.trim() || r.file_name,
+      r.invoice_date?.trim() || "—",
+      r.supplier?.trim() || t("dash.unknown"),
+      r.currency ?? "—",
+      String(r.subtotal ?? 0),
+      String(r.tax ?? 0),
+      String(r.total ?? 0),
+    ]);
+
+  const itemRows = () => {
+    const out: string[][] = [];
+    for (const r of rows ?? []) {
+      for (const it of r.data?.items ?? []) {
+        out.push([
+          r.invoice_number?.trim() || r.file_name,
+          r.supplier?.trim() || t("dash.unknown"),
+          it.name,
+          String(it.qty ?? 0),
+          String(it.unitPrice ?? 0),
+          String(it.discount ?? 0),
+          String(it.total ?? 0),
+        ]);
+      }
+    }
+    return out;
+  };
+
+  const exportExcel = async () => {
+    if (!rows || rows.length === 0) return;
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.utils.book_new();
+      const wsInv = XLSX.utils.aoa_to_sheet([INV_HEAD, ...invRows()]);
+      wsInv["!cols"] = INV_HEAD.map(() => ({ wch: 18 }));
+      XLSX.utils.book_append_sheet(wb, wsInv, "Invoices");
+      const wsItems = XLSX.utils.aoa_to_sheet([ITEM_HEAD, ...itemRows()]);
+      wsItems["!cols"] = ITEM_HEAD.map(() => ({ wch: 18 }));
+      XLSX.utils.book_append_sheet(wb, wsItems, "Items");
+      XLSX.writeFile(wb, `archive-${month}.xlsx`);
+      toast.success(t("arc.exportDone"));
+    } catch {
+      toast.error(t("arc.exportFail"));
+    }
+  };
+
+  const exportPdf = async () => {
+    if (!rows || rows.length === 0) return;
+    const esc = (c: string) => c.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const table = (head: string[], data: string[][]) =>
+      `<table border="1" cellspacing="0" cellpadding="4" dir="${lang === "ar" ? "rtl" : "ltr"}">
+        <thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+        <tbody>${data.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>
+      </table>`;
+    const holder = document.createElement("div");
+    holder.style.cssText = `position:fixed;left:-12000px;top:0;width:1120px;padding:32px;background:#fff;color:#000;text-align:${lang === "ar" ? "right" : "left"};`;
+    holder.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+    holder.innerHTML = `<h1>${esc(t("arc.title", { month: monthLabel(lang, month) }))}</h1>
+      <p>${esc(t("arc.summary", { n: rows.length, m: groups.length }))} · ${esc(t("arc.totalPurchases"))}: ${nf.format(totals.total)} · ${esc(t("arc.totalTax"))}: ${nf.format(totals.tax)}</p>
+      ${table(INV_HEAD, invRows())}
+      <h2>${esc(t("col.product"))}</h2>
+      ${table(ITEM_HEAD, itemRows())}`;
+    document.body.appendChild(holder);
+    const toastId = toast.loading(t("arc.exportPreparing"));
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(holder, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * pageW) / canvas.width;
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      let y = 0;
+      pdf.addImage(imgData, "JPEG", 0, y, pageW, imgH);
+      let remaining = imgH - pageH;
+      while (remaining > 0) {
+        y -= pageH;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, y, pageW, imgH);
+        remaining -= pageH;
+      }
+      pdf.save(`archive-${month}.pdf`);
+      toast.success(t("arc.exportDone"), { id: toastId });
+    } catch {
+      toast.error(t("arc.exportFail"), { id: toastId });
+    } finally {
+      holder.remove();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/92 backdrop-blur">
@@ -160,6 +275,24 @@ function ArchiveMonthPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+          {rows && rows.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => void exportExcel()}
+                className="rounded-full bg-ink px-3 py-1.5 text-[11px] font-bold text-ink-foreground"
+              >
+                {t("arc.exportExcel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportPdf()}
+                className="rounded-full bg-brand-soft px-3 py-1.5 text-[11px] font-bold text-foreground"
+              >
+                {t("arc.exportPdf")}
+              </button>
+            </>
+          )}
           <Link
             to="/dashboard"
             className="rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold ring-1 ring-black/5 transition-colors hover:bg-brand-soft/60"

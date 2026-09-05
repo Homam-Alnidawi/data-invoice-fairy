@@ -91,7 +91,13 @@ const SYSTEM = `أنت محلل فواتير مشتريات خبير في قرا
  "confidence": {"supplier":0,"invoice_number":0,"date":0,"items":0,"subtotal":0,"tax":0,"total":0},
  "notes": ""
 }
-التاريخ بصيغة YYYY-MM-DD إن أمكن. الأرقام أرقام وليست نصوصًا. tax_rate نسبة عشرية (0.15 = 15%، 0.20 = 20%).`;
+التاريخ بصيغة YYYY-MM-DD إن أمكن. الأرقام أرقام وليست نصوصًا. tax_rate نسبة عشرية (0.15 = 15%، 0.20 = 20%).
+
+قواعد إلزامية للفواتير المكتوبة بخط اليد:
+- اقرأ الأرقام العربية الشرقية (٠١٢٣٤٥٦٧٨٩) والغربية (0123456789) على حد سواء، وحوّلها دائمًا إلى أرقام غربية في الإخراج.
+- أهمل تمامًا أي سطر مشطوب أو ملغى بخط فوقه، ولا تدرجه ضمن البنود إطلاقًا.
+- ركّز على استخراج البنود (الاسم، الكمية، سعر الوحدة، الخصم، إجمالي السطر) بدقة عالية؛ المجموع النهائي سيُحسب حسابيًا من جمع البنود.
+- لا تعتمد على المجموع الكلي المكتوب كنص؛ إن تعارض المكتوب مع جمع البنود فمجموع البنود هو المرجع، واذكر ذلك في notes.`;
 
 function numOrNull(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -198,33 +204,50 @@ export const extractInvoice = createServerFn({ method: "POST" })
     const taxRaw = numOrNull(raw["tax"]);
     const totalRaw = numOrNull(raw["total"]);
 
-    const subtotal = subtotalRaw ?? 0;
-    const tax = taxRaw ?? 0;
-    const total = totalRaw ?? 0;
+    const itemsSum = items.reduce((s, it) => s + (it.total || 0), 0);
+    const rel = (a: number, b: number) => Math.abs(a - b) / Math.max(1, Math.abs(b));
+
+    // الفواتير المكتوبة بخط اليد: لا نعتمد على المجموع المكتوب — نجمع البنود برمجيًا
+    const computed = handwritten && items.length > 0;
+    const subtotal = computed ? itemsSum : (subtotalRaw ?? 0);
+    const tax = computed
+      ? taxRate !== null
+        ? Math.round((subtotal - discount) * taxRate * 100) / 100
+        : (taxRaw ?? 0)
+      : (taxRaw ?? 0);
+    const total = computed
+      ? Math.round((subtotal - discount + tax) * 100) / 100
+      : (totalRaw ?? 0);
 
     const warnings: string[] = [];
 
     if (!isInvoice) warnings.push("ليست فاتورة واضحة / تحتاج مراجعة");
 
     // التحقق الحسابي
-    const itemsSum = items.reduce((s, it) => s + (it.total || 0), 0);
-    const rel = (a: number, b: number) => Math.abs(a - b) / Math.max(1, Math.abs(b));
-
-    if (items.length > 0 && subtotalRaw !== null && rel(itemsSum, subtotal - 0) > EPS) {
-      warnings.push(
-        `مجموع البنود (${itemsSum.toFixed(2)}) لا يطابق الصافي (${subtotal.toFixed(2)}) — يوجد اختلاف في الحساب ويجب مراجعة الفاتورة.`,
-      );
-    }
-    if (subtotalRaw !== null && taxRaw !== null && totalRaw !== null) {
-      if (rel(subtotal + tax - discount, total) > EPS) {
+    if (computed) {
+      if (totalRaw !== null && rel(total, totalRaw) > EPS) {
         warnings.push(
-          "الصافي + الضريبة لا يساوي الإجمالي — يوجد اختلاف في الحساب ويجب مراجعة الفاتورة.",
+          `المجموع المكتوب بخط اليد (${totalRaw.toFixed(2)}) يختلف عن جمع البنود (${total.toFixed(2)}) — اعتمدنا جمع البنود.`,
         );
       }
+    } else {
+      if (items.length > 0 && subtotalRaw !== null && rel(itemsSum, subtotal) > EPS) {
+        warnings.push(
+          `مجموع البنود (${itemsSum.toFixed(2)}) لا يطابق الصافي (${subtotal.toFixed(2)}) — يوجد اختلاف في الحساب ويجب مراجعة الفاتورة.`,
+        );
+      }
+      if (subtotalRaw !== null && taxRaw !== null && totalRaw !== null) {
+        if (rel(subtotal + tax - discount, total) > EPS) {
+          warnings.push(
+            "الصافي + الضريبة لا يساوي الإجمالي — يوجد اختلاف في الحساب ويجب مراجعة الفاتورة.",
+          );
+        }
+      }
+      if (subtotalRaw === null || totalRaw === null) {
+        warnings.push("قيم مالية أساسية غير مقروءة (الصافي أو الإجمالي).");
+      }
     }
-    if (subtotalRaw === null || totalRaw === null) {
-      warnings.push("قيم مالية أساسية غير مقروءة (الصافي أو الإجمالي).");
-    }
+
     if (currency === null) warnings.push("عملة غير محددة");
     if (supplier === null) warnings.push("اسم المورد غير مقروء");
     if (invoiceNumber === null) warnings.push("رقم الفاتورة غير مقروء");
