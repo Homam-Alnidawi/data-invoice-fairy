@@ -13,6 +13,16 @@ function MastercardMark() {
   );
 }
 
+function PaypalMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" role="img" aria-label="PayPal" fill="currentColor">
+      <path d="M7.4 21.2H4.6c-.4 0-.7-.4-.6-.8L6.7 3.6c.1-.4.4-.6.8-.6h5.9c3.3 0 5.4 1.7 4.9 5-.5 3.4-3 5-6.2 5H9.5c-.4 0-.7.3-.8.7l-.6 6.8c0 .4-.3.7-.7.7Z" opacity="0.55" />
+      <path d="M10.6 23h-2.4c-.4 0-.7-.3-.6-.7l.5-3.4c.1-.4.4-.6.8-.6h1.9c3.2 0 5.7-1.6 6.2-5 .1-.6.1-1.2 0-1.7 1.6.7 2.4 2.2 2 4.5-.5 3.4-3 5-6.2 5h-1.3c-.4 0-.7.3-.8.7l-.1.9c0 .2-.1.3-.2.3Z" />
+    </svg>
+  );
+}
+
+
 function PayBadge({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-[11px] font-extrabold tracking-wide text-foreground/80 transition-colors hover:border-brand hover:text-foreground">
