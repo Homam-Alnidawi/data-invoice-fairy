@@ -1173,11 +1173,54 @@ const paymentTr: Dict = {
   "pay.backDashboard": "Panele dön",
   "pay.viewSubscription": "Aboneliği görüntüle",
 };
-const DICTS: Record<Lang, Dict> = {
-  ar: { ...ar, ...footerAr, ...paymentAr },
-  en: { ...en, ...footerEn, ...paymentEn },
-  tr: { ...tr, ...footerTr, ...paymentTr },
+const extraAr: Dict = {
+  "dash.clearAll": "حذف الكل",
+  "dash.clearTitle": "حذف كل الملفات من قائمة المعالجة",
+  "dash.clearBody":
+    "سيتم حذف {n} ملفًا من قائمة المعالجة فقط. تبقى الفواتير المحفوظة في الأرشيف الشهري كما هي، ولا يُعاد الرصيد المستهلك.",
+  "dash.clearConfirm": "نعم، احذف الكل",
+  "dash.clearCancel": "إلغاء",
+  "dash.cleared": "تم حذف قائمة المعالجة",
+  "arc.exportExcel": "تصدير Excel",
+  "arc.exportPdf": "تصدير PDF",
+  "arc.exportDone": "تم التصدير",
+  "arc.exportFail": "تعذّر التصدير",
+  "arc.exportPreparing": "جارٍ تجهيز الملف…",
 };
+const extraEn: Dict = {
+  "dash.clearAll": "Clear all",
+  "dash.clearTitle": "Clear the whole processing list",
+  "dash.clearBody":
+    "{n} files will be removed from the processing list only. Invoices saved in the monthly archive stay untouched, and used credit is not refunded.",
+  "dash.clearConfirm": "Yes, clear all",
+  "dash.clearCancel": "Cancel",
+  "dash.cleared": "Processing list cleared",
+  "arc.exportExcel": "Export Excel",
+  "arc.exportPdf": "Export PDF",
+  "arc.exportDone": "Export complete",
+  "arc.exportFail": "Export failed",
+  "arc.exportPreparing": "Preparing file…",
+};
+const extraTr: Dict = {
+  "dash.clearAll": "Tümünü sil",
+  "dash.clearTitle": "İşlem listesinin tamamını sil",
+  "dash.clearBody":
+    "{n} dosya yalnızca işlem listesinden kaldırılacak. Aylık arşivdeki kayıtlı faturalar korunur ve kullanılan hak iade edilmez.",
+  "dash.clearConfirm": "Evet, tümünü sil",
+  "dash.clearCancel": "Vazgeç",
+  "dash.cleared": "İşlem listesi temizlendi",
+  "arc.exportExcel": "Excel'e aktar",
+  "arc.exportPdf": "PDF'e aktar",
+  "arc.exportDone": "Dışa aktarma tamam",
+  "arc.exportFail": "Dışa aktarma başarısız",
+  "arc.exportPreparing": "Dosya hazırlanıyor…",
+};
+const DICTS: Record<Lang, Dict> = {
+  ar: { ...ar, ...footerAr, ...paymentAr, ...extraAr },
+  en: { ...en, ...footerEn, ...paymentEn, ...extraEn },
+  tr: { ...tr, ...footerTr, ...paymentTr, ...extraTr },
+};
+
 
 
 const normalize = (value: string | undefined | null): Lang => {
