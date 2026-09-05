@@ -118,7 +118,12 @@ export function SiteFooter() {
               <span className="hidden sm:inline">Mastercard</span>
             </PayBadge>
             <PayBadge>Zain Cash</PayBadge>
+            <PayBadge>
+              <PaypalMark />
+              <span>PayPal</span>
+            </PayBadge>
           </div>
+
         </div>
 
         <div className="mt-8 border-t border-border pt-5 text-center text-[11px] text-muted-foreground">
